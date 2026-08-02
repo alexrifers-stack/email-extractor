@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email Extraction CMH9</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:           #FBF6EF;
+  --bg-panel:     #ffffff;
+  --bg-surface:   #DCE0D9;
+  --bg-input:     #f5f0e8;
+  --bg-hover:     #e8e3db;
+  --line:         rgba(28,60,48,0.10);
+  --line-bright:  rgba(31,122,140,0.40);
+  --accent:       #1f7a8c;
+  --accent-dim:   rgba(31,122,140,0.12);
+  --accent-glow:  rgba(31,122,140,0.30);
+  --cyan:         #022b3a;
+  --cyan-dim:     rgba(2,43,58,0.10);
+  --text:         #022b3a;
+  --text-2:       #2a5060;
+  --text-3:       #7a9caa;
+  --green:        #1f7a8c;
+  --green-dim:    rgba(31,122,140,0.12);
+  --red:          #b94040;
+  --red-dim:      rgba(185,64,64,0.09);
+  --r:            12px;
+  --r-sm:         8px;
+}
+body.dm {
+  --bg:           #022b3a;
+  --bg-panel:     #03364a;
+  --bg-surface:   #04415a;
+  --bg-input:     #032f40;
+  --bg-hover:     #064a65;
+  --line:         rgba(191,219,247,0.10);
+  --line-bright:  rgba(191,219,247,0.38);
+  --accent:       #bfdbf7;
+  --accent-dim:   rgba(191,219,247,0.13);
+  --accent-glow:  rgba(191,219,247,0.28);
+  --cyan:         #bfdbf7;
+  --cyan-dim:     rgba(191,219,247,0.10);
+  --text:         #e8f4ff;
+  --text-2:       #bfdbf7;
+  --text-3:       #4a7a9b;
+  --green:        #bfdbf7;
+  --green-dim:    rgba(191,219,247,0.12);
+  --red:          #f87171;
+  --red-dim:      rgba(248,113,113,0.10);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.35s, color 0.35s;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(31,122,140,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(2,43,58,0.05) 0%, transparent 55%),
+    linear-gradient(rgba(31,122,140,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31,122,140,0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+}
+.wrap {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 1600px;
+  margin: 0 auto;
+  padding: 36px 32px 60px;
+}
+@media (min-width: 1400px) { .wrap { padding: 40px 48px 80px; } }
+@media (min-width: 1800px) { .wrap { padding: 44px 64px 80px; } }
+.topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; flex-wrap: wrap; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-logo {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: linear-gradient(140deg, #022b3a 0%, #1f7a8c 100%);
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  box-shadow: 0 0 0 1px rgba(31,122,140,0.35), 0 8px 24px rgba(31,122,140,0.25);
+  flex-shrink: 0;
+}
+.brand-name { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text); }
+.brand-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem; font-weight: 500;
+  color: var(--accent); letter-spacing: 0.1em;
+  text-transform: uppercase; margin-top: 4px;
+}
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.status-pill {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.72rem; font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.05em;
+  padding: 7px 14px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--bg-surface); color: var(--text-2);
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.status-dot.on { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: blink 2s ease infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── MAIN PAGE TOGGLE ─────────────────────────── */
+.toggle-wrap {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--bg-surface);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 600; color: var(--text-2);
+  cursor: pointer; transition: all 0.2s; user-select: none;
+}
+.toggle-wrap:hover { border-color: var(--accent); color: var(--accent); }
+.toggle-wrap.active { border-color: rgba(31,122,140,0.40); background: var(--accent-dim); color: var(--accent); }
+body.dm .toggle-wrap.active { border-color: rgba(191,219,247,0.30); }
+.toggle-switch {
+  width: 34px; height: 18px; border-radius: 99px;
+  background: var(--bg-hover); border: 1px solid var(--line);
+  position: relative; transition: background 0.25s, border-color 0.25s; flex-shrink: 0;
+}
+.toggle-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--text-3); transition: transform 0.25s, background 0.25s;
+}
+.toggle-wrap.active .toggle-switch { background: var(--accent); border-color: var(--accent); }
+body.dm .toggle-wrap.active .toggle-switch { background: var(--accent); }
+.toggle-wrap.active .toggle-switch::after { transform: translateX(16px); background: #fff; }
+body.dm .toggle-wrap.active .toggle-switch::after { background: #022b3a; }
+.toggle-label { white-space: nowrap; }
+/* ─────────────────────────────────────────────── */
+
+#themeBtn {
+  width: 40px; height: 40px;
+  border: 1px solid var(--line); background: var(--bg-surface);
+  border-radius: var(--r-sm); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; color: var(--text-2);
+}
+#themeBtn:hover { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 1400px) { .layout { grid-template-columns: 360px 1fr; gap: 28px; } }
+@media (min-width: 1800px) { .layout { grid-template-columns: 400px 1fr; gap: 32px; } }
+@media (max-width: 900px)  { .layout { grid-template-columns: 1fr; } }
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 18px; overflow: hidden;
+  box-shadow: 0 1px 0 var(--line), 0 12px 40px rgba(2,43,58,0.10);
+  transition: background 0.35s, border-color 0.35s, box-shadow 0.35s;
+  animation: fadeUp 0.4s ease both;
+}
+body.dm .panel { box-shadow: 0 1px 0 var(--line), 0 24px 48px rgba(0,0,0,0.50); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+.panel-head {
+  padding: 18px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+}
+.panel-ico { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.ico-blue  { background: var(--accent-dim); border: 1px solid rgba(31,122,140,0.18); }
+.ico-cyan  { background: var(--cyan-dim);   border: 1px solid rgba(2,43,58,0.12); }
+body.dm .ico-cyan { border-color: rgba(191,219,247,0.15); }
+.ico-green { background: var(--green-dim);  border: 1px solid rgba(31,122,140,0.18); }
+.ico-orange { background: rgba(234,88,12,0.10); border: 1px solid rgba(234,88,12,0.18); }
+body.dm .ico-orange { background: rgba(251,146,60,0.13); border-color: rgba(251,146,60,0.20); }
+.panel-title {
+  font-size: 0.73rem; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--accent); font-family: 'IBM Plex Mono', monospace;
+}
+.panel-body { padding: 22px 24px; }
+.field { margin-bottom: 15px; }
+.field:last-child { margin-bottom: 0; }
+.f-label {
+  font-size: 0.71rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-2); display: block; margin-bottom: 7px;
+}
+.f-input {
+  width: 100%; height: 42px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--text);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.875rem;
+  padding: 0 14px; outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+.f-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.f-input::placeholder { color: var(--text-3); }
+.f-input option { background: var(--bg-panel); color: var(--text); }
+.input-wrap { position: relative; }
+.eye-btn {
+  position: absolute; right: 12px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px; color: var(--text-3); cursor: pointer; transition: color 0.2s;
+}
+.eye-btn:hover { color: var(--accent); }
+.field-hint {
+  margin-top: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.69rem; font-weight: 500; color: var(--accent);
+  display: flex; align-items: center; gap: 6px;
+}
+.nl-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.67rem; font-weight: 600; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 99px;
+  background: rgba(234,88,12,0.10); border: 1px solid rgba(234,88,12,0.22);
+  color: #c2410c; margin-top: 10px; display: flex;
+}
+body.dm .nl-badge {
+  background: rgba(251,146,60,0.12); border-color: rgba(251,146,60,0.25); color: #fb923c;
+}
+.nl-active {
+  background: rgba(31,122,140,0.12) !important;
+  border-color: rgba(31,122,140,0.30) !important;
+  color: var(--accent) !important;
+}
+.btn-connect {
+  width: 100%; height: 42px;
+  background: var(--accent-dim); border: 1px solid rgba(31,122,140,0.30);
+  border-radius: var(--r-sm); color: var(--accent);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.2s; margin-top: 8px;
+}
+.btn-connect:hover {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  box-shadow: 0 4px 20px var(--accent-glow); transform: translateY(-1px);
+}
+body.dm .btn-connect:hover { color: #022b3a; }
+.mode-stack { display: flex; flex-direction: column; gap: 8px; }
+.mode-card { position: relative; cursor: pointer; }
+.mode-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.mode-inner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 15px; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--bg-surface);
+  transition: all 0.2s; cursor: pointer;
+}
+.mode-inner:hover { border-color: rgba(31,122,140,0.35); background: var(--bg-hover); }
+.mode-card input:checked + .mode-inner {
+  border-color: var(--accent); background: var(--accent-dim);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.mode-ico {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--line); display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; transition: background 0.2s;
+}
+.mode-card input:checked + .mode-inner .mode-ico { background: var(--accent); }
+.mode-title { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.mode-desc  { font-size: 0.7rem; color: var(--text-2); margin-top: 2px; }
+.radio-ring {
+  width: 18px; height: 18px; border: 2px solid var(--text-3);
+  border-radius: 50%; margin-left: auto; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.mode-card input:checked + .mode-inner .radio-ring { border-color: var(--accent); background: var(--accent); }
+.mode-card input:checked + .mode-inner .radio-ring::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+body.dm .mode-card input:checked + .mode-inner .radio-ring::after { background: #022b3a; }
+.right-col { display: flex; flex-direction: column; gap: 20px; }
+.params-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.clean-box { display: none; animation: revealDown 0.22s ease; }
+@keyframes revealDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.clean-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.divider { height: 1px; background: var(--line); margin: 16px 0; }
+.checks-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+@media (max-width: 620px) { .checks-grid { grid-template-columns: 1fr 1fr; } }
+.check-tile {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 13px; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--bg-surface);
+  cursor: pointer; transition: all 0.15s;
+}
+.check-tile:hover { border-color: rgba(31,122,140,0.35); background: var(--bg-hover); }
+.check-tile input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.check-tile span { font-size: 0.76rem; font-weight: 500; color: var(--text-2); }
+.headers-box { display: none; animation: revealDown 0.22s ease; }
+.headers-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.headers-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .headers-3col { grid-template-columns: 1fr 1fr; } .headers-2col { grid-template-columns: 1fr; } }
+.f-mono { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; }
+.btn-extract {
+  width: 100%; height: 52px;
+  background: var(--accent);
+  border: none; border-radius: var(--r-sm);
+  color: #fff;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.92rem; font-weight: 800; letter-spacing: 0.02em;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.25s;
+  box-shadow: 0 4px 24px var(--accent-glow);
+}
+body.dm .btn-extract { color: #022b3a; }
+.btn-extract:hover { transform: translateY(-2px); box-shadow: 0 8px 32px var(--accent-glow); filter: brightness(1.08); }
+.btn-extract:active { transform: translateY(0); }
+.btn-extract:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.loading-wrap {
+  margin-top: 14px; background: var(--bg-surface);
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 16px 20px; display: none;
+}
+.loading-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.spin {
+  width: 20px; height: 20px;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-txt { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--text-2); }
+.progress-rail { height: 3px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), var(--cyan));
+  border-radius: 99px; width: 0%; transition: width 0.3s ease; position: relative;
+}
+.progress-fill::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 60px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  animation: sweep 1.2s linear infinite;
+}
+@keyframes sweep { from{left:-60px} to{left:100%} }
+.btn-logout {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 42px; background: transparent;
+  border: 1px solid rgba(185,64,64,0.22); border-radius: var(--r-sm);
+  color: var(--red); font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.82rem; font-weight: 600; text-decoration: none;
+  cursor: pointer; transition: all 0.2s; margin-top: 10px;
+}
+.btn-logout:hover { background: var(--red-dim); border-color: rgba(185,64,64,0.4); color: var(--red); }
+.err-box {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: var(--red-dim);
+  border: 1px solid rgba(185,64,64,0.22);
+  border-radius: var(--r-sm); font-size: 0.8rem; color: var(--red); margin-top: 10px;
+}
+#resultPanel { display: none; animation: fadeUp 0.35s ease both; }
+.result-stats { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.stat-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 99px;
+  border: 1px solid var(--line); background: var(--bg-surface);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.69rem; font-weight: 600; color: var(--text-2);
+}
+.stat-chip.green { border-color: rgba(31,122,140,0.30); color: var(--accent); background: var(--accent-dim); }
+.stat-chip.blue  { border-color: var(--line); color: var(--text-2); background: var(--bg-surface); }
+#resultTextarea {
+  width: 100%; min-height: 380px;
+  background: var(--bg-input); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--text);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; line-height: 1.65;
+  padding: 18px 20px; outline: none; resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s; caret-color: var(--accent);
+}
+#resultTextarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+#resultTextarea::placeholder { color: var(--text-3); }
+.result-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.btn-action {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 20px; border-radius: var(--r-sm);
+  font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.82rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.2s;
+}
+.btn-copy { background: var(--accent-dim); border: 1px solid rgba(31,122,140,0.28); color: var(--accent); }
+.btn-copy:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 4px 16px var(--accent-glow); }
+body.dm .btn-copy:hover { color: #022b3a; }
+.btn-copy.copied { background: var(--green-dim); border-color: rgba(31,122,140,0.35); color: var(--accent); }
+.btn-download { background: var(--bg-surface); border: 1px solid var(--line); color: var(--text-2); }
+.btn-download:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 4px 16px var(--accent-glow); }
+body.dm .btn-download:hover { color: #022b3a; }
+.btn-clear { background: transparent; border: 1px solid var(--line); color: var(--text-2); margin-left: auto; }
+.btn-clear:hover { background: var(--red-dim); border-color: rgba(185,64,64,0.30); color: var(--red); }
+.char-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--text-3); margin-left: auto; }
+.foot {
+  margin-top: 40px; padding-top: 28px;
+  border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.foot-brand { display: flex; align-items: center; gap: 10px; }
+.foot-logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(140deg,#022b3a,#1f7a8c); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.foot-name { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.foot-copy { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--text-3); display: block; margin-top: 2px; }
+.foot-links { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.foot-link { font-size: 0.75rem; font-weight: 500; color: var(--text-2); text-decoration: none; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--line); transition: all 0.15s; }
+.foot-link:hover { border-color: var(--accent); color: var(--accent); }
+.foot-tg { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-decoration: none; padding: 5px 14px; border-radius: 99px; border: 1px solid rgba(31,122,140,0.30); background: var(--accent-dim); display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+.foot-tg:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+body.dm .foot-tg:hover { color: #022b3a; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* toast notification */
+.toast-notif {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(16px);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; font-weight: 600;
+  padding: 10px 20px; border-radius: 99px;
+  background: var(--bg-panel); border: 1px solid var(--line);
+  color: var(--text); box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  opacity: 0; transition: opacity 0.25s, transform 0.25s; pointer-events: none; z-index: 9999;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast-notif.ok  { border-color: rgba(31,122,140,0.40); color: var(--accent); }
+.toast-notif.off { border-color: rgba(185,64,64,0.30); color: var(--red); }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-logo">📧</div>
+      <div>
+        <div class="brand-name">Email Extraction #CMH9</div>
+        <div class="brand-tag">CMH9 &nbsp;·&nbsp; v2.3 &nbsp;·&nbsp; Admin</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+
+      <!-- IMAP connection status -->
+      <div class="status-pill">
+        <div class="status-dot" id="connDot"></div>
+        <span id="connLabel">Disconnected</span>
+      </div>
+
+      <!-- MAIN PAGE TOGGLE -->
+      <div class="toggle-wrap <%= enableMainPage ? 'active' : '' %>"
+           id="mainPageToggle"
+           onclick="toggleMainPage()"
+           title="Toggle main page on/off">
+        <div class="toggle-switch"></div>
+        <span class="toggle-label" id="toggleLabel">
+          Main Page: <%= enableMainPage ? 'ON' : 'OFF' %>
+        </span>
+      </div>
+
+      <!-- THEME -->
+      <button id="themeBtn" onclick="toggleTheme()" title="Toggle theme">
+        <i class="bi bi-sun-fill" id="themeIco"></i>
+      </button>
+    </div>
+  </div>
+
+  <form id="mainForm" method="POST">
+  <div class="layout">
+
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- CONNECTION -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-ico ico-blue">🔌</div>
+          <span class="panel-title">Connection</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label class="f-label">Email Address</label>
+            <input name="email" class="f-input" type="email" placeholder="you@gmail.com" required value="<%= email || '' %>">
+          </div>
+          <div class="field">
+            <label class="f-label">App Password</label>
+            <div class="input-wrap">
+              <input type="password" name="password" id="passwordInput" class="f-input" style="padding-right:40px;" placeholder="xxxx xxxx xxxx xxxx" required value="<%= password || '' %>">
+              <span class="eye-btn" onclick="togglePassword()">
+                <i class="bi bi-eye" id="eyeIco"></i>
+              </span>
+            </div>
+          </div>
+          <button type="submit" formaction="/connect" class="btn-connect">
+            <i class="bi bi-plug-fill"></i> Connect to IMAP
+          </button>
+        </div>
+      </div>
+
+      <!-- NEWSLETTER REPLACE -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-ico ico-orange">🔄</div>
+          <span class="panel-title">Newsletter Replace</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label class="f-label">Replace All Emails With</label>
+            <div class="input-wrap">
+              <input
+                type="email"
+                id="newsletterEmail"
+                class="f-input"
+                placeholder="target@example.com"
+                autocomplete="off"
+                oninput="onNlInput()"
+              >
+            </div>
+            <div class="field-hint" style="margin-top:8px;">
+              <i class="bi bi-arrow-repeat" style="font-size:10px;"></i>
+              <span>Replaces every email + Dear/Hi name in extracted content</span>
+            </div>
+            <div class="nl-badge" id="nlBadge">
+              <i class="bi bi-x-circle-fill"></i>
+              <span id="nlBadgeTxt">Inactive — no replacement</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-ico ico-cyan">⚙️</div>
+          <span class="panel-title">Download Mode</span>
+        </div>
+        <div class="panel-body">
+          <div class="mode-stack">
+            <label class="mode-card">
+              <input type="radio" name="mode" value="clean" checked>
+              <div class="mode-inner">
+                <div class="mode-ico">🧹</div>
+                <div><div class="mode-title">Clean Headers</div><div class="mode-desc">News-style with header rewrite</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="justtext">
+              <div class="mode-inner">
+                <div class="mode-ico">📝</div>
+                <div><div class="mode-title">Extract TXT (with links)</div><div class="mode-desc">Plain text body extraction</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="plaintext">
+              <div class="mode-inner">
+                <div class="mode-ico">🔤</div>
+                <div><div class="mode-title">Extract TXT (Plain Text)</div><div class="mode-desc">Readable text only — no links or URLs</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="original">
+              <div class="mode-inner">
+                <div class="mode-ico">📬</div>
+                <div><div class="mode-title">Newsletter Original</div><div class="mode-desc">Raw newsletter format</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="headersonly">
+              <div class="mode-inner">
+                <div class="mode-ico">🗂️</div>
+                <div><div class="mode-title">Headers Only</div><div class="mode-desc">Cleaned headers with custom params</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="bodyonly">
+              <div class="mode-inner">
+                <div class="mode-ico">📄</div>
+                <div><div class="mode-title">Body Only</div><div class="mode-desc">Raw HTML/text body, no headers</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="receivedonly">
+              <div class="mode-inner">
+                <div class="mode-ico">📡</div>
+                <div><div class="mode-title">Received Only</div><div class="mode-desc">Extract Received headers only</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- PARAMETERS -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-ico ico-blue">🎛️</div>
+          <span class="panel-title">Extraction Parameters</span>
+        </div>
+        <div class="panel-body">
+          <div class="field">
+            <label class="f-label">Label / Folder</label>
+            <select name="label" id="labelSelect" class="f-input">
+              <% if (labels.length > 0) { %>
+                <% labels.forEach(function(label) { %>
+                  <option value="<%= label.name %>" data-count="<%= label.count %>">
+                    <%= label.name %> (<%= label.count %>)
+                  </option>
+                <% }) %>
+              <% } else { %>
+                <option>Connect First</option>
+              <% } %>
+            </select>
+            <div class="field-hint" id="labelCount">
+              <i class="bi bi-envelope-fill" style="font-size:10px;"></i>
+              <span>0 emails in folder</span>
+            </div>
+          </div>
+          <div class="params-2col">
+            <div class="field">
+              <label class="f-label">Start From</label>
+              <input type="number" name="start" value="1" class="f-input" min="1">
+            </div>
+            <div class="field">
+              <label class="f-label">Limit</label>
+              <input type="number" name="limit" value="10" class="f-input" min="1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLEAN OPTIONS -->
+      <div class="panel clean-box" id="cleanOptions">
+        <div class="panel-head">
+          <div class="panel-ico ico-cyan">🛠️</div>
+          <span class="panel-title">Header Modification</span>
+        </div>
+        <div class="panel-body">
+          <div class="clean-2col">
+            <div class="field">
+              <label class="f-label">Domain Replacement</label>
+              <input name="domain" class="f-input" value="[RP]" placeholder="[RP]">
+            </div>
+            <div class="field">
+              <label class="f-label">Message-ID Tag</label>
+              <input name="eid" class="f-input" value="[EID]" placeholder="[EID]">
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="checks-grid">
+            <label class="check-tile"><input type="checkbox" name="replaceDate" checked><span>Replace Date</span></label>
+            <label class="check-tile"><input type="checkbox" name="replaceTo" checked><span>Replace To</span></label>
+            <label class="check-tile"><input type="checkbox" name="keepReceived" checked><span>Keep Received</span></label>
+            <label class="check-tile"><input type="checkbox" name="keepReplyTo" checked><span>Keep Reply-To</span></label>
+            <label class="check-tile"><input type="checkbox" name="addCc"><span>Auto Add Cc</span></label>
+            <label class="check-tile"><input type="checkbox" name="addSender"><span>Add Sender</span></label>
+            <label class="check-tile"><input type="checkbox" name="addFromID"><span>From [ID]</span></label>
+            <label class="check-tile"><input type="checkbox" name="addSubjectID"><span>Subject [ID]</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEADERS ONLY OPTIONS -->
+      <div class="panel headers-box" id="headersOptions">
+        <div class="panel-head">
+          <div class="panel-ico ico-cyan">🗂️</div>
+          <span class="panel-title">Headers Parameters</span>
+        </div>
+        <div class="panel-body">
+          <div class="headers-3col">
+            <div class="field">
+              <label class="f-label">From Name</label>
+              <input name="P_FRNAME" class="f-input f-mono" value="[P_FRNAME]" placeholder="[P_FRNAME]">
+            </div>
+            <div class="field">
+              <label class="f-label">Language Code</label>
+              <input name="LAN6" class="f-input f-mono" value="[6LAN]" placeholder="[6LAN]">
+            </div>
+            <div class="field">
+              <label class="f-label">Return Path</label>
+              <input name="P_RPATH" class="f-input f-mono" value="[P_RPATH]" placeholder="[P_RPATH]">
+            </div>
+          </div>
+          <div class="headers-2col">
+            <div class="field">
+              <label class="f-label">Subject Value</label>
+              <input name="SUBJECT_VAL" class="f-input f-mono" value="[S]" placeholder="[S]">
+            </div>
+            <div class="field">
+              <label class="f-label">Boundary</label>
+              <input name="BOUNDARY" class="f-input f-mono" value="[BND]" placeholder="[BND]">
+            </div>
+            <div class="field">
+              <label class="check-tile">
+                <input type="checkbox" name="addSender1">
+                <span>Add Sender</span>
+              </label>
+            </div>
+          </div>
+          <div class="field-hint" style="margin-top:4px;">
+            <i class="bi bi-info-circle" style="font-size:10px;"></i>
+            <span>Outputs cleaned headers only — body is stripped</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULT PANEL -->
+      <div class="panel" id="resultPanel">
+        <div class="panel-head">
+          <div class="panel-ico ico-green">📋</div>
+          <span class="panel-title">Extraction Result</span>
+          <div class="result-stats" style="margin-left:auto;margin-bottom:0;">
+            <span class="stat-chip green">
+              <i class="bi bi-envelope-check-fill"></i>
+              <span id="statEmailCount">0</span> emails
+            </span>
+            <span class="stat-chip blue">
+              <i class="bi bi-file-earmark-text"></i>
+              <span id="statSizeVal">0 B</span>
+            </span>
+          </div>
+        </div>
+        <div class="panel-body">
+          <textarea
+            id="resultTextarea"
+            placeholder="Extracted content will appear here after clicking Start Extraction…"
+            readonly
+          ></textarea>
+          <div class="result-actions">
+            <button type="button" class="btn-action btn-copy" id="copyBtn" onclick="copyResult()">
+              <i class="bi bi-clipboard"></i> Copy
+            </button>
+            <button type="button" class="btn-action btn-download" id="downloadBtn" onclick="downloadResult()">
+              <i class="bi bi-download"></i> Download
+            </button>
+            <span class="char-count" id="charCount">0 characters</span>
+            <button type="button" class="btn-action btn-clear" onclick="clearResult()">
+              <i class="bi bi-trash"></i> Clear
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION -->
+      <div class="panel">
+        <div class="panel-body">
+          <button type="button" class="btn-extract" id="extractBtn" onclick="startExtraction()">
+            <i class="bi bi-lightning-charge-fill"></i> Start Extraction
+          </button>
+          <div class="loading-wrap" id="loadingBox">
+            <div class="loading-top">
+              <div class="spin"></div>
+              <span class="loading-txt" id="loadingTxt">⏳ Extracting emails, please wait...</span>
+            </div>
+            <div class="progress-rail">
+              <div class="progress-fill" id="progressBar"></div>
+            </div>
+          </div>
+          <a href="/logout" class="btn-logout">
+            <i class="bi bi-box-arrow-left"></i> Logout
+          </a>
+          <div id="errBox" class="err-box" style="display:none;">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span id="errMsg"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </form>
+
+  <div class="foot">
+    <div class="foot-brand">
+      <div class="foot-logo">🚀</div>
+      <div>
+        <div class="foot-name">CMH9 Extractor</div>
+        <span class="foot-copy">© <span id="yr"></span> Karim Rachmoun — All rights reserved.</span>
+      </div>
+    </div>
+    <div class="foot-links">
+      <a href="#" class="foot-link">Terms</a>
+      <a href="#" class="foot-link">Privacy</a>
+      <a href="#" class="foot-link">Support</a>
+      <a href="https://t.me/karim_rachmoun" target="_blank" class="foot-tg">
+        <i class="bi bi-telegram"></i> Telegram
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast notification -->
+<div class="toast-notif" id="toast"></div>
+
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+
+  // ── MAIN PAGE TOGGLE ─────────────────────────────────────────────────────────
+  let _mainPageEnabled = <%= enableMainPage ? 'true' : 'false' %>;
+
+  async function toggleMainPage() {
+    const wrap  = document.getElementById('mainPageToggle');
+    const label = document.getElementById('toggleLabel');
+    wrap.style.pointerEvents = 'none';
+    wrap.style.opacity = '0.6';
+    try {
+      const resp = await fetch('/toggle-main', { method: 'POST' });
+      const data = await resp.json();
+      _mainPageEnabled = data.enableMainPage;
+      wrap.classList.toggle('active', _mainPageEnabled);
+      label.textContent = 'Main Page: ' + (_mainPageEnabled ? 'ON' : 'OFF');
+      showToast(
+        _mainPageEnabled
+          ? '✅ Main page is now ENABLED'
+          : '🔴 Main page is now DISABLED',
+        _mainPageEnabled ? 'ok' : 'off'
+      );
+    } catch (e) {
+      showToast('❌ Toggle failed — try again', 'off');
+    } finally {
+      wrap.style.pointerEvents = '';
+      wrap.style.opacity = '';
+    }
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast-notif ' + (type || '');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  function togglePassword() {
+    const inp = document.getElementById('passwordInput');
+    const ico = document.getElementById('eyeIco');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    ico.className = inp.type === 'text' ? 'bi bi-eye-slash' : 'bi bi-eye';
+  }
+
+  function applyTheme(t) {
+    const ico = document.getElementById('themeIco');
+    document.body.classList.toggle('dm', t === 'dark');
+    ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+    localStorage.setItem('cmh9theme', t);
+  }
+  function toggleTheme() {
+    applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'light' : 'dark');
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    applyTheme(localStorage.getItem('cmh9theme') || 'light');
+    const hasLabels = document.getElementById('labelSelect').options[0]?.text !== 'Connect First';
+    if (hasLabels) setConnected(true);
+  });
+
+  const radios     = document.querySelectorAll("input[name='mode']");
+  const cleanBox   = document.getElementById('cleanOptions');
+  const headersBox = document.getElementById('headersOptions');
+  function syncMode() {
+    const val = document.querySelector("input[name='mode']:checked").value;
+    cleanBox.style.display   = val === 'clean'       ? 'block' : 'none';
+    headersBox.style.display = val === 'headersonly' ? 'block' : 'none';
+  }
+  radios.forEach(r => r.addEventListener('change', syncMode));
+  syncMode();
+
+  const labelSel = document.getElementById('labelSelect');
+  const labelCnt = document.getElementById('labelCount');
+  function updateCount() {
+    if (!labelSel) return;
+    const n = labelSel.options[labelSel.selectedIndex]?.getAttribute('data-count') || 0;
+    labelCnt.innerHTML = '<i class="bi bi-envelope-fill" style="font-size:10px;"></i> <span>' + n + ' emails in folder</span>';
+  }
+  labelSel.addEventListener('change', updateCount);
+  updateCount();
+
+  const connDot   = document.getElementById('connDot');
+  const connLabel = document.getElementById('connLabel');
+  function setConnected(yes) {
+    connDot.classList.toggle('on', yes);
+    connLabel.textContent = yes ? 'Connected' : 'Disconnected';
+  }
+
+  function onNlInput() {
+    const val   = document.getElementById('newsletterEmail').value.trim();
+    const badge = document.getElementById('nlBadge');
+    if (val) {
+      badge.classList.add('nl-active');
+      badge.innerHTML = '<i class="bi bi-check-circle-fill"></i> <span>Active — replacing with: ' + val + '</span>';
+    } else {
+      badge.classList.remove('nl-active');
+      badge.innerHTML = '<i class="bi bi-x-circle-fill"></i> <span>Inactive — no replacement</span>';
+    }
+  }
+
+  const fileNames = {
+    justtext:     'file_TEXT.txt',
+    plaintext:    'file_PlainText.txt',
+    clean:        'file_NewsWarmUp.txt',
+    headersonly:  'file_CleanHeadersOnly.txt',
+    bodyonly:     'file_BodyOnly.txt',
+    original:     'merged_emails.txt',
+    receivedonly: 'file_ReceivedOnly.txt'
+  };
+
+  let lastContent  = '';
+  let lastFilename = 'merged_emails.txt';
+
+  const EMAIL_REGEX = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+
+  async function startExtraction() {
+    const form        = document.getElementById('mainForm');
+    const extractBtn  = document.getElementById('extractBtn');
+    const loadingBox  = document.getElementById('loadingBox');
+    const progressBar = document.getElementById('progressBar');
+    const loadingTxt  = document.getElementById('loadingTxt');
+    const errBox      = document.getElementById('errBox');
+    const errMsg      = document.getElementById('errMsg');
+
+    errBox.style.display = 'none';
+    loadingBox.style.display = 'block';
+    extractBtn.disabled = true;
+    extractBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+
+    let p = 0;
+    const iv = setInterval(() => {
+      const step = p < 40 ? Math.random() * 8 : p < 70 ? Math.random() * 4 : p < 88 ? Math.random() * 1.2 : 0;
+      p = Math.min(88, p + step);
+      progressBar.style.width = p + '%';
+    }, 300);
+
+    const mode = document.querySelector("input[name='mode']:checked").value;
+    lastFilename = fileNames[mode] || 'merged_emails.txt';
+
+    try {
+      const formData = new FormData(form);
+      const params   = new URLSearchParams();
+      for (const [k, v] of formData.entries()) params.append(k, v);
+
+      const resp = await fetch('/extract', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    params.toString()
+      });
+
+      clearInterval(iv);
+      let text = await resp.text();
+
+      if (!resp.ok || text.startsWith('❌')) {
+        errMsg.textContent = text.startsWith('❌') ? text : '❌ ' + text;
+        errBox.style.display = 'flex';
+        return;
+      }
+
+      const nlEmail = document.getElementById('newsletterEmail').value.trim();
+      if (nlEmail) {
+        text = text.replace(EMAIL_REGEX, nlEmail);
+        const localPart = nlEmail.split('@')[0];
+
+        let detectedName = null;
+
+        // Replace text after greeting keywords, up to a separator (, : ! ; .)
+        // Capture the first detected name (first word only) before replacing
+        const GREETING_KEYWORDS = /\b(Dear|Bonjour|Hello|Hi|Hey|Username:|Username|Name)\s+([^,:!;.\n]+)/g;
+        text = text.replace(GREETING_KEYWORDS, (match, kw, namePart) => {
+          if (!detectedName) {
+            const firstWord = namePart.trim().split(/\s+/)[0];
+            if (firstWord) detectedName = firstWord;
+          }
+          return `${kw} ${localPart}`;
+        });
+
+        // Replace a standalone word immediately followed by a comma (e.g. "Karim,")
+        // Capture the first detected name before replacing (if not already found)
+        text = text.replace(/\b([A-Za-zÀ-ÿ'\-]+),/g, (match, word) => {
+          if (!detectedName) detectedName = word;
+          return `${localPart},`;
+        });
+
+        // Replace numeric codes (4-20 digits) with [<count>N]
+        text = text.replace(/\b\d{4,20}\b/g, (match) => `[${match.length}N]`);
+
+        // Replace the entire word if it contains the detected first name anywhere inside it
+        if (detectedName) {
+          const escapedName = detectedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const WORD_REGEX = new RegExp('\\S*' + escapedName + '\\S*', 'gi');
+          text = text.replace(WORD_REGEX, localPart);
+        }
+      }
+
+      lastContent = text;
+      const ta    = document.getElementById('resultTextarea');
+      ta.value    = text;
+
+      const emailCount = (text.match(/__SEP__/g) || []).length + 1;
+      document.getElementById('statEmailCount').textContent = emailCount;
+      document.getElementById('statSizeVal').textContent    = formatBytes(new Blob([text]).size);
+      document.getElementById('charCount').textContent      = text.length.toLocaleString() + ' characters';
+
+      const panel = document.getElementById('resultPanel');
+      panel.style.display = 'block';
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+
+    } catch (err) {
+      clearInterval(iv);
+      errMsg.textContent = '❌ ' + err.message;
+      errBox.style.display = 'flex';
+    } finally {
+      clearInterval(iv);
+      progressBar.style.width = '100%';
+      setTimeout(() => {
+        loadingBox.style.display = 'none';
+        progressBar.style.width  = '0%';
+        extractBtn.disabled = false;
+        extractBtn.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Start Extraction';
+      }, 400);
+    }
+  }
+
+  function copyResult() {
+    const ta  = document.getElementById('resultTextarea');
+    const btn = document.getElementById('copyBtn');
+    navigator.clipboard.writeText(ta.value).then(() => {
+      btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  function downloadResult() {
+    if (!lastContent) return;
+    const blob = new Blob([lastContent], { type: 'text/plain' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = lastFilename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function clearResult() {
+    document.getElementById('resultTextarea').value = '';
+    document.getElementById('resultPanel').style.display = 'none';
+    lastContent = '';
+    document.getElementById('charCount').textContent = '0 characters';
+  }
+
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(2) + ' MB';
+  }
+</script>
+</body>
+</html>
