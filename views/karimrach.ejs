@@ -619,19 +619,13 @@ body.dm .foot-tg:hover { color: #022b3a; }
           <span class="panel-title">Headers Parameters</span>
         </div>
         <div class="panel-body">
-          <div class="headers-3col">
-            <div class="field">
-              <label class="f-label">From Name</label>
-              <input name="P_FRNAME" class="f-input f-mono" value="[P_FRNAME]" placeholder="[P_FRNAME]">
-            </div>
-            <div class="field">
-              <label class="f-label">Language Code</label>
-              <input name="LAN6" class="f-input f-mono" value="[6LAN]" placeholder="[6LAN]">
-            </div>
-            <div class="field">
-              <label class="f-label">Return Path</label>
-              <input name="P_RPATH" class="f-input f-mono" value="[P_RPATH]" placeholder="[P_RPATH]">
-            </div>
+          <div class="field">
+            <label class="f-label">From</label>
+            <input name="FROM_VAL" class="f-input f-mono" value="[P_FRNAME]@[P_RPATH]" placeholder="[P_FRNAME]@[P_RPATH]">
+          </div>
+          <div class="field">
+            <label class="f-label">Content-Type</label>
+            <input name="CONTENT_TYPE_VAL" class="f-input f-mono" value='multipart/related;boundary=&quot;[BND]&quot;;type=&quot;multipart/alternative&quot;' placeholder='multipart/related;boundary="[BND]";type="multipart/alternative"'>
           </div>
           <div class="headers-2col">
             <div class="field">
@@ -639,15 +633,15 @@ body.dm .foot-tg:hover { color: #022b3a; }
               <input name="SUBJECT_VAL" class="f-input f-mono" value="[S]" placeholder="[S]">
             </div>
             <div class="field">
-              <label class="f-label">Boundary</label>
-              <input name="BOUNDARY" class="f-input f-mono" value="[BND]" placeholder="[BND]">
-            </div>
-            <div class="field">
               <label class="check-tile">
-                <input type="checkbox" name="addSender1">
+                <input type="checkbox" name="addSender1" id="addSender1Chk">
                 <span>Add Sender</span>
               </label>
             </div>
+          </div>
+          <div class="field" id="senderFormatField" style="display:none;">
+            <label class="f-label">Sender Format</label>
+            <input name="SENDER_VAL" class="f-input f-mono" value="noreply@[RDNS]" placeholder="noreply@[RDNS]">
           </div>
           <div class="field-hint" style="margin-top:4px;">
             <i class="bi bi-info-circle" style="font-size:10px;"></i>
@@ -782,6 +776,14 @@ body.dm .foot-tg:hover { color: #022b3a; }
   }
   radios.forEach(r => r.addEventListener('change', syncMode));
   syncMode();
+
+  const addSender1Chk    = document.getElementById('addSender1Chk');
+  const senderFormatField = document.getElementById('senderFormatField');
+  function syncSenderFormat() {
+    senderFormatField.style.display = addSender1Chk.checked ? 'block' : 'none';
+  }
+  addSender1Chk.addEventListener('change', syncSenderFormat);
+  syncSenderFormat();
 
   const labelSel = document.getElementById('labelSelect');
   const labelCnt = document.getElementById('labelCount');
