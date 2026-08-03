@@ -609,7 +609,7 @@ body.dm .foot-tg:hover { color: #10182a; }
           <div class="clean-2col">
             <div class="field">
               <label class="f-label">Domain Replacement</label>
-              <input name="domain" class="f-input" value="[P_RPATH]" placeholder="[P_RPATH]">
+              <input name="domain" class="f-input" value="[RP]" placeholder="[RP]">
             </div>
             <div class="field">
               <label class="f-label">Message-ID Tag</label>
@@ -926,9 +926,6 @@ body.dm .foot-tg:hover { color: #10182a; }
           if (!detectedName) detectedName = word;
           return `${localPart},`;
         });
-
-        // Replace numeric codes (4-20 digits) with [<count>N]
-        text = text.replace(/\b\d{4,20}\b/g, (match) => `[${match.length}N]`);
 
         // Replace the entire word if it contains the detected first name anywhere inside it
         if (detectedName) {
