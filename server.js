@@ -101,6 +101,17 @@ function htmlToPlainText(html) {
     return html.trim()
 }
 
+// Unfold RFC 2822 header continuation lines (lines starting with whitespace)
+// into single logical lines, preserving the body separator and body intact.
+function unfoldHeaders(email) {
+    var parts = email.split(/\r?\n\r?\n/)
+    var headerBlock = parts[0]
+    var rest = parts.slice(1).join("\n\n")
+    // Join continuation lines (WSP at start) with the preceding line
+    var unfolded = headerBlock.replace(/\r?\n([ \t]+)/g, " ")
+    return rest.length ? unfolded + "\n\n" + rest : unfolded
+}
+
 function cleanHeaders(email, options) {
     options = options || {}
     const removeHeaders = [
@@ -112,15 +123,25 @@ function cleanHeaders(email, options) {
     ]
     const domain = options.domain || "[RDNS]"
     const eid = options.eid || "[EID]"
+    // Unfold continuation lines so every header is on one line
+    email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
     var cleaned = []
     var skip = false
+    var inHeaders = true
     var ccExists = false
     for (var i = 0; i < lines.length; i++) {
         if (/^Cc:/i.test(lines[i])) ccExists = true
     }
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i]
+        // Blank line = end of headers; pass everything after through unchanged
+        if (inHeaders && line.trim() === "") {
+            inHeaders = false
+            cleaned.push(line)
+            continue
+        }
+        if (!inHeaders) { cleaned.push(line); continue }
         if (removeHeaders.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
         if (skip) { if (/^\s/.test(line)) continue; skip = false }
         if (/^Date:/i.test(line)) { cleaned.push(options.replaceDate ? "Date: [DATE]" : line); continue }
@@ -177,6 +198,8 @@ function cleanHeadersOnly(email, options) {
     const P_RPATH     = options.P_RPATH     || "[P_RPATH]"
     const SUBJECT_VAL = options.SUBJECT_VAL || "[S]"
     const BOUNDARY    = options.BOUNDARY    || "[BND]"
+    // Unfold continuation lines so every header is on one line
+    email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
     var cleaned = []
     var skip = false
@@ -192,7 +215,11 @@ function cleanHeadersOnly(email, options) {
             if (match) { cleaned.push("Message-ID: <" + match[1] + "[EID]@" + match[2] + ">") }
             continue
         }
-        if (/^From:/i.test(line)) { cleaned.push("From: " + P_FRNAME + " <noreply." + LAN6 + "@" + P_RPATH + ">"); continue }
+        if (/^From:/i.test(line)) {
+            cleaned.push("From: " + P_FRNAME + " <noreply." + LAN6 + "@" + P_RPATH + ">")
+            if (options.addSender1) cleaned.push("Sender: noreply." + LAN6 + "@" + P_RPATH)
+            continue
+        }
         if (/^Subject:/i.test(line)) { cleaned.push("Subject: " + SUBJECT_VAL); continue }
         if (/^To:/i.test(line)) { cleaned.push("To: <[*to]>"); cleaned.push("Cc: [*to]"); continue }
         if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: multipart/related;boundary=\"" + BOUNDARY + "\";type=\"multipart/alternative\""); continue }
@@ -292,7 +319,7 @@ async function runExtraction(req, res) {
 
 // Home — serves karimrach directly, no password
 app.get("/", function(req, res) {
-    res.render("karimrach", { labels: [], error: null, email: "", password: "", enableMainPage: true })
+    res.render("karimrach", { labels: [], error: null, email: "", password: "" })
 })
 
 // Connect to IMAP and list folders
@@ -313,9 +340,9 @@ app.post("/connect", async function(req, res) {
             }
         }
         await client.logout()
-        res.render("karimrach", { labels, error: null, email, password, enableMainPage: true })
+        res.render("karimrach", { labels, error: null, email, password })
     } catch (err) {
-        res.render("karimrach", { labels: [], error: "Connection Failed", email, password, enableMainPage: true })
+        res.render("karimrach", { labels: [], error: "Connection Failed", email, password })
     }
 })
 
@@ -324,10 +351,6 @@ app.post("/extract", function(req, res) {
     runExtraction(req, res)
 })
 
-// Toggle main page state (used by the toggle switch in karimrach)
-app.post("/toggle-main", function(req, res) {
-    res.json({ enableMainPage: true })
-})
 
 // Logout — just redirect home
 app.get("/logout", function(req, res) {
