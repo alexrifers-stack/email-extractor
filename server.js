@@ -193,11 +193,10 @@ function cleanHeadersOnly(email, options) {
         'DKIM-Signature', 'Sender', 'X-Received',
         'X-Google-Smtp-Source'
     ]
-    const P_FRNAME    = options.P_FRNAME    || "[P_FRNAME]"
-    const LAN6        = options.LAN6        || "[6LAN]"
-    const P_RPATH     = options.P_RPATH     || "[P_RPATH]"
-    const SUBJECT_VAL = options.SUBJECT_VAL || "[S]"
-    const BOUNDARY    = options.BOUNDARY    || "[BND]"
+    const FROM_VAL         = options.FROM_VAL         || "[P_FRNAME]@[P_RPATH]"
+    const SUBJECT_VAL      = options.SUBJECT_VAL      || "[S]"
+    const CONTENT_TYPE_VAL = options.CONTENT_TYPE_VAL || "multipart/related;boundary=\"[BND]\";type=\"multipart/alternative\""
+    const SENDER_VAL       = options.SENDER_VAL       || "noreply@[RDNS]"
     // Unfold continuation lines so every header is on one line
     email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
@@ -216,13 +215,13 @@ function cleanHeadersOnly(email, options) {
             continue
         }
         if (/^From:/i.test(line)) {
-            cleaned.push("From: " + P_FRNAME + " <noreply." + LAN6 + "@" + P_RPATH + ">")
-            if (options.addSender1) cleaned.push("Sender: noreply." + LAN6 + "@" + P_RPATH)
+            cleaned.push("From: " + FROM_VAL)
+            if (options.addSender1) cleaned.push("Sender: " + SENDER_VAL)
             continue
         }
         if (/^Subject:/i.test(line)) { cleaned.push("Subject: " + SUBJECT_VAL); continue }
         if (/^To:/i.test(line)) { cleaned.push("To: <[*to]>"); cleaned.push("Cc: [*to]"); continue }
-        if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: multipart/related;boundary=\"" + BOUNDARY + "\";type=\"multipart/alternative\""); continue }
+        if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + CONTENT_TYPE_VAL); continue }
         cleaned.push(line)
     }
     return cleaned.join("\n") + "\n"
@@ -284,9 +283,9 @@ async function runExtraction(req, res) {
                 }))
             } else if (mode === "headersonly") {
                 results.push(cleanHeadersOnly(raw, {
-                    P_FRNAME: req.body.P_FRNAME, LAN6: req.body.LAN6,
-                    P_RPATH: req.body.P_RPATH, SUBJECT_VAL: req.body.SUBJECT_VAL,
-                    BOUNDARY: req.body.BOUNDARY, addSender1: req.body.addSender1
+                    FROM_VAL: req.body.FROM_VAL, SUBJECT_VAL: req.body.SUBJECT_VAL,
+                    CONTENT_TYPE_VAL: req.body.CONTENT_TYPE_VAL, SENDER_VAL: req.body.SENDER_VAL,
+                    addSender1: req.body.addSender1
                 }))
             } else if (mode === "bodyonly") {
                 var body = await getRawBody(raw)
