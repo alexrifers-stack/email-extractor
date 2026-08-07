@@ -52,6 +52,27 @@ body.dm {
   --red:          #f87171;
   --red-dim:      rgba(248,113,113,0.11);
 }
+body.pink {
+  --bg:           #fdf1f6;
+  --bg-panel:     #ffffff;
+  --bg-surface:   #fbe0ec;
+  --bg-input:     #fdeef4;
+  --bg-hover:     #fbd6e6;
+  --line:         rgba(219,39,119,0.14);
+  --line-bright:  rgba(13,148,136,0.38);
+  --accent:       #db2777;
+  --accent-dim:   rgba(219,39,119,0.12);
+  --accent-glow:  rgba(219,39,119,0.30);
+  --cyan:         #0d9488;
+  --cyan-dim:     rgba(13,148,136,0.11);
+  --text:         #3b1330;
+  --text-2:       #8a4a6b;
+  --text-3:       #c093ab;
+  --green:        #0d9488;
+  --green-dim:    rgba(13,148,136,0.13);
+  --red:          #dc2626;
+  --red-dim:      rgba(220,38,38,0.10);
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -135,6 +156,7 @@ body::before {
   animation: fadeUp 0.4s ease both;
 }
 body.dm .panel { box-shadow: 0 1px 0 var(--line), 0 20px 44px rgba(8,14,28,0.35); }
+body.pink .panel { box-shadow: 0 1px 0 var(--line), 0 16px 40px rgba(219,39,119,0.14); }
 @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
 .panel-head {
   padding: 18px 24px 16px;
@@ -145,9 +167,11 @@ body.dm .panel { box-shadow: 0 1px 0 var(--line), 0 20px 44px rgba(8,14,28,0.35)
 .ico-blue  { background: var(--accent-dim); border: 1px solid rgba(31,122,140,0.18); }
 .ico-cyan  { background: var(--cyan-dim);   border: 1px solid rgba(2,43,58,0.12); }
 body.dm .ico-cyan { border-color: rgba(108,198,236,0.18); }
+body.pink .ico-cyan { border-color: rgba(13,148,136,0.22); }
 .ico-green { background: var(--green-dim);  border: 1px solid rgba(31,122,140,0.18); }
 .ico-orange { background: rgba(234,88,12,0.10); border: 1px solid rgba(234,88,12,0.18); }
 body.dm .ico-orange { background: rgba(251,146,60,0.14); border-color: rgba(251,146,60,0.22); }
+body.pink .ico-orange { background: rgba(234,88,12,0.11); border-color: rgba(234,88,12,0.24); }
 .panel-title {
   font-size: 0.73rem; font-weight: 700;
   letter-spacing: 0.07em; text-transform: uppercase;
@@ -387,6 +411,27 @@ body.dm .btn-download:hover { color: #10182a; }
 .foot-tg { font-size: 0.75rem; font-weight: 600; color: var(--accent); text-decoration: none; padding: 5px 14px; border-radius: 99px; border: 1px solid rgba(31,122,140,0.30); background: var(--accent-dim); display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
 .foot-tg:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 body.dm .foot-tg:hover { color: #10182a; }
+.foot-link-wrap { position: relative; }
+.mode3-pop {
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%) translateY(4px);
+  width: 216px; background: var(--bg-panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18); padding: 14px; text-align: left;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s, transform 0.18s; z-index: 20;
+}
+.mode3-pop.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+.mode3-pop::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--bg-panel);
+}
+.mode3-title { font-size: 0.72rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.mode3-desc { font-size: 0.68rem; color: var(--text-3); margin-top: 4px; line-height: 1.4; }
+.mode3-btn {
+  margin-top: 10px; width: 100%; padding: 7px 0; border-radius: 99px; border: none; cursor: pointer;
+  font-size: 0.7rem; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg,#db2777,#0d9488); transition: filter 0.15s, transform 0.15s;
+}
+.mode3-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.mode3-btn.is-active { background: var(--bg-surface); color: var(--text-2); }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
@@ -744,7 +789,14 @@ body.dm .foot-tg:hover { color: #10182a; }
       </div>
     </div>
     <div class="foot-links">
-      <a href="#" class="foot-link">Terms</a>
+      <div class="foot-link-wrap">
+        <a href="#" class="foot-link" id="termsLink">Terms</a>
+        <div class="mode3-pop" id="mode3Pop">
+          <div class="mode3-title">🎀 Mode 3 <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
+          <div class="mode3-desc">A playful pink &amp; teal theme, tucked away for the curious.</div>
+          <button type="button" class="mode3-btn" id="mode3Btn" onclick="toggleMode3()">Activate Pink Mode</button>
+        </div>
+      </div>
       <a href="#" class="foot-link">Privacy</a>
       <a href="#" class="foot-link">Support</a>
       <a href="https://t.me/karim_rachmoun" target="_blank" class="foot-tg">
@@ -773,12 +825,31 @@ body.dm .foot-tg:hover { color: #10182a; }
   function applyTheme(t) {
     const ico = document.getElementById('themeIco');
     document.body.classList.toggle('dm', t === 'dark');
-    ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+    document.body.classList.toggle('pink', t === 'pink');
+    ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : t === 'pink' ? 'bi bi-flower2' : 'bi bi-sun-fill';
     localStorage.setItem('cmh9theme', t);
+    const mode3Btn = document.getElementById('mode3Btn');
+    if (mode3Btn) {
+      mode3Btn.textContent = t === 'pink' ? 'Back to Normal' : 'Activate Pink Mode';
+      mode3Btn.classList.toggle('is-active', t === 'pink');
+    }
   }
   function toggleTheme() {
     applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'light' : 'dark');
   }
+  function toggleMode3() {
+    applyTheme(localStorage.getItem('cmh9theme') === 'pink' ? 'light' : 'pink');
+    document.getElementById('mode3Pop').classList.remove('show');
+  }
+  const termsLink = document.getElementById('termsLink');
+  const mode3Pop  = document.getElementById('mode3Pop');
+  termsLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    mode3Pop.classList.toggle('show');
+  });
+  document.addEventListener('click', (e) => {
+    if (!mode3Pop.contains(e.target) && e.target !== termsLink) mode3Pop.classList.remove('show');
+  });
   window.addEventListener('DOMContentLoaded', () => {
     applyTheme(localStorage.getItem('cmh9theme') || 'light');
     const hasLabels = document.getElementById('labelSelect').options[0]?.text !== 'Connect First';
