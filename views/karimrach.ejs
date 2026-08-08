@@ -785,18 +785,20 @@ body.dm .foot-tg:hover { color: #10182a; }
       <div class="foot-logo">🚀</div>
       <div>
         <div class="foot-name">CMH9 Extractor</div>
-        <span class="foot-copy">© <span id="yr"></span> Karim Rachmoun — All rights reserved.</span>
+        <span class="foot-copy">© <span id="yr"></span> <span id="footAuthor">Karim Rachmoun</span> — All rights
+          <span class="foot-link-wrap" style="display:inline-block;">
+            <span id="termsLink" style="cursor:pointer;">reserved</span>
+            <div class="mode3-pop" id="mode3Pop">
+              <div class="mode3-title">🎀 Mode Nour <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
+              <div class="mode3-desc">A playful pink &amp; teal theme, tucked away for the curious.</div>
+              <button type="button" class="mode3-btn" id="mode3Btn" onclick="toggleMode3()">Activate Pink Mode</button>
+            </div>
+          </span>.
+        </span>
       </div>
     </div>
     <div class="foot-links">
-      <div class="foot-link-wrap">
-        <a href="#" class="foot-link" id="termsLink">Terms</a>
-        <div class="mode3-pop" id="mode3Pop">
-          <div class="mode3-title">🎀 Mode 3 <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
-          <div class="mode3-desc">A playful pink &amp; teal theme, tucked away for the curious.</div>
-          <button type="button" class="mode3-btn" id="mode3Btn" onclick="toggleMode3()">Activate Pink Mode</button>
-        </div>
-      </div>
+      <a href="#" class="foot-link">Terms</a>
       <a href="#" class="foot-link">Privacy</a>
       <a href="#" class="foot-link">Support</a>
       <a href="https://t.me/karim_rachmoun" target="_blank" class="foot-tg">
@@ -833,6 +835,8 @@ body.dm .foot-tg:hover { color: #10182a; }
       mode3Btn.textContent = t === 'pink' ? 'Back to Normal' : 'Activate Pink Mode';
       mode3Btn.classList.toggle('is-active', t === 'pink');
     }
+    const footAuthor = document.getElementById('footAuthor');
+    if (footAuthor) footAuthor.textContent = t === 'pink' ? 'Nour Aassifar & Karim' : 'Karim Rachmoun';
   }
   function toggleTheme() {
     applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'light' : 'dark');
