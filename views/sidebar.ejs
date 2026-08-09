@@ -1,0 +1,23 @@
+<aside class="app-sidebar" aria-label="Primary navigation">
+  <div class="sidebar-brand">
+    <div class="sidebar-logo">⚙️</div>
+    <div>
+      <div class="sidebar-brand-name">CMH9 Tools</div>
+      <div class="sidebar-brand-sub">Internal Suite</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <% navItems.forEach(function(item) { %>
+    <a href="<%= item.href %>" class="sidebar-link<%= activeNav === item.id ? ' is-active' : '' %>">
+      <span class="sidebar-link-icon"><%- item.icon %></span>
+      <span class="sidebar-link-label"><%= item.label %></span>
+    </a>
+    <% }) %>
+  </nav>
+
+  <div class="sidebar-foot">
+    <span class="sidebar-foot-dot"></span>
+    More tools coming soon
+  </div>
+</aside>
