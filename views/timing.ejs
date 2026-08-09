@@ -183,7 +183,7 @@
   }
 
   /* ── App shell: sidebar + main content ── */
-  .app-shell { display: flex; align-items: flex-start; gap: 24px; }
+  .app-shell { display: flex; align-items: stretch; gap: 24px; }
   .app-main  { flex: 1 1 auto; min-width: 0; }
 
   .app-sidebar {
@@ -228,7 +228,7 @@
   .sidebar-link.is-active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
   .sidebar-foot {
     display: flex; align-items: center; gap: 6px;
-    padding: 10px 7px 0; margin-top: 6px;
+    padding: 10px 7px 0; margin-top: auto;
     border-top: 1px solid var(--border);
     font-size: 0.58rem; color: var(--muted);
   }
