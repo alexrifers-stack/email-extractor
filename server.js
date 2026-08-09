@@ -7,6 +7,25 @@ const path         = require("path")
 
 const app = express()
 
+// ── SIDEBAR NAVIGATION ────────────────────────────────────────────────────────
+// Single source of truth for the app's sidebar. Add a new { id, label, href, icon }
+// entry here whenever a new route/tool is introduced, and it will show up in the
+// sidebar on every page automatically.
+const NAV_ITEMS = [
+    {
+        id: "extract",
+        label: "Extraction",
+        href: "/",
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>'
+    },
+    {
+        id: "timing",
+        label: "Timing",
+        href: "/timing",
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.3 2"/></svg>'
+    }
+]
+
 // ── EXPRESS SETUP ─────────────────────────────────────────────────────────────
 app.set("view engine", "ejs")
 app.use(express.urlencoded({ extended: true }))
@@ -318,7 +337,7 @@ async function runExtraction(req, res) {
 
 // Home — serves karimrach directly, no password
 app.get("/", function(req, res) {
-    res.render("karimrach", { labels: [], error: null, email: "", password: "" })
+    res.render("karimrach", { labels: [], error: null, email: "", password: "", navItems: NAV_ITEMS, activeNav: "extract" })
 })
 
 // Connect to IMAP and list folders
@@ -339,15 +358,20 @@ app.post("/connect", async function(req, res) {
             }
         }
         await client.logout()
-        res.render("karimrach", { labels, error: null, email, password })
+        res.render("karimrach", { labels, error: null, email, password, navItems: NAV_ITEMS, activeNav: "extract" })
     } catch (err) {
-        res.render("karimrach", { labels: [], error: "Connection Failed", email, password })
+        res.render("karimrach", { labels: [], error: "Connection Failed", email, password, navItems: NAV_ITEMS, activeNav: "extract" })
     }
 })
 
 // Extract emails
 app.post("/extract", function(req, res) {
     runExtraction(req, res)
+})
+
+// Timing — IPs / Offset schedule generator (client-side only)
+app.get("/timing", function(req, res) {
+    res.render("timing", { navItems: NAV_ITEMS, activeNav: "timing" })
 })
 
 
