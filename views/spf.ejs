@@ -811,7 +811,20 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
       <div class="foot-logo">🚀</div>
       <div>
         <div class="foot-name">CMH9 Extractor</div>
-        <span class="foot-copy">© <span id="yr"></span> Karim Rachmoun — All rights reserved.</span>
+        <span class="foot-copy">© <span id="yr"></span> <span id="footAuthor">Karim Rachmoun </span> <span id="termsLink" style="cursor:pointer;">-</span> All rights
+          <span class="foot-link-wrap" style="display:inline-block;">
+            reserved
+            <div class="mode3-pop" id="mode3Pop">
+              <div class="mode3-title">🎀 Mode Nour <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
+              <div class="mode3-desc">Choose your pink mood 🌸</div>
+              <div class="mode3-btns">
+                <button type="button" class="mode3-btn mode3-btn-dark"  id="mode3BtnDark"  onclick="setMode3('pink')">🖤 Pink &amp; Black</button>
+                <button type="button" class="mode3-btn mode3-btn-light" id="mode3BtnLight" onclick="setMode3('pink-light')">🌸 Pink Light</button>
+                <button type="button" class="mode3-btn mode3-btn-dm"    id="mode3BtnDm"    onclick="setMode3('pink-dark')">🌷 Pink Dark</button>
+              </div>
+            </div>
+          </span>.
+        </span>
       </div>
     </div>
     <div class="foot-links">
@@ -831,16 +844,49 @@ document.getElementById('yr').textContent = new Date().getFullYear();
 /* ── Theme (shared with the rest of the app) ── */
 function applyTheme(t) {
   const ico = document.getElementById('themeIco');
-  document.body.classList.remove('dm');
-  if (t === 'dark') document.body.classList.add('dm');
-  ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+  document.body.classList.remove('dm', 'pink', 'pink-light', 'pink-dark');
+  if (t === 'dark')            document.body.classList.add('dm');
+  else if (t === 'pink')       document.body.classList.add('pink');
+  else if (t === 'pink-light') document.body.classList.add('pink-light');
+  else if (t === 'pink-dark')  document.body.classList.add('pink-dark');
+  const isPink = ['pink','pink-light','pink-dark'].includes(t);
+  if (ico) ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : isPink ? 'bi bi-flower2' : 'bi bi-sun-fill';
   localStorage.setItem('cmh9theme', t);
+  const ids = { 'pink': 'mode3BtnDark', 'pink-light': 'mode3BtnLight', 'pink-dark': 'mode3BtnDm' };
+  ['mode3BtnDark','mode3BtnLight','mode3BtnDm'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.remove('is-active');
+  });
+  if (ids[t]) {
+    const active = document.getElementById(ids[t]);
+    if (active) active.classList.add('is-active');
+  }
+  const footAuthor = document.getElementById('footAuthor');
+  if (footAuthor) footAuthor.textContent = isPink ? 'Nour Aassifar & Karim' : 'Karim Rachmoun';
 }
 function toggleTheme() {
   applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'light' : 'dark');
 }
+function setMode3(variant) {
+  const cur = localStorage.getItem('cmh9theme');
+  applyTheme(cur === variant ? 'light' : variant);
+  const pop = document.getElementById('mode3Pop');
+  if (pop) pop.classList.remove('show');
+}
 (function initTheme() {
-  applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'dark' : 'light');
+  const saved = localStorage.getItem('cmh9theme');
+  applyTheme(['dark','pink','pink-light','pink-dark'].includes(saved) ? saved : 'light');
+  const termsLink = document.getElementById('termsLink');
+  const mode3Pop  = document.getElementById('mode3Pop');
+  if (termsLink && mode3Pop) {
+    termsLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      mode3Pop.classList.toggle('show');
+    });
+    document.addEventListener('click', (e) => {
+      if (!mode3Pop.contains(e.target) && e.target !== termsLink) mode3Pop.classList.remove('show');
+    });
+  }
 })();
 
 /* ── SPF generator logic ── */
