@@ -658,6 +658,22 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
 }
 .spf-sample-btn:hover { color: var(--accent); }
 
+.spf-warnings {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--red-dim);
+  border: 1px solid rgba(185,64,64,0.25);
+  border-radius: var(--r-sm);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--red);
+  line-height: 1.7;
+  max-height: 110px;
+  overflow-y: auto;
+}
+.spf-warnings div { display: flex; gap: 6px; }
+.spf-warnings .ln { color: var(--text-3); flex-shrink: 0; }
+
 /* Status pill state variants, layered on top of the shared .status-pill look */
 .status-pill.ok   { color: var(--green); border-color: var(--green-dim); background: var(--green-dim); }
 .status-pill.err  { color: var(--red);   border-color: var(--red-dim);   background: var(--red-dim); }
@@ -751,6 +767,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
           </div>
           <textarea id="spf-out" class="f-input f-mono spf-out" style="height:auto;min-height:220px;padding:14px 16px;resize:vertical;line-height:1.75;" readonly spellcheck="false"
             placeholder="Results appear here…"></textarea>
+          <div id="spf-warnings" class="spf-warnings" style="display:none;"></div>
           <div class="spf-foot">
             <span class="status-pill" id="spf-status">
               <span class="status-dot"></span>
@@ -846,27 +863,43 @@ function toggleTheme() {
     '172.16.0.1,outbound.mailing.net'
   ].join('\n');
 
+  const IP_RE     = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const DOMAIN_RE = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/;
+
+  function isValidIp(ip) {
+    if (!IP_RE.test(ip)) return false;
+    return ip.split('.').every(function (o) { return Number(o) <= 255; });
+  }
+
+  function isValidDomain(d) {
+    return d.length <= 253 && DOMAIN_RE.test(d);
+  }
+
   function rootDomain(d) {
     const p = d.split('.');
     return p.length <= 2 ? d : p.slice(-2).join('.');
   }
 
+  // Returns { rows, issues } — issues is a list of { line, text, reason }
+  // for every non-empty input line that couldn't be turned into a record.
   function generate() {
     const lines = inp.value.split(/\r?\n/);
     const rows = [];
+    const issues = [];
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i].trim();
       if (!l) continue;
       const parts = l.split(',');
-      if (parts.length < 2) continue;
+      if (parts.length < 2) { issues.push({ line: i + 1, text: l, reason: 'expected "IP,domain"' }); continue; }
       const ip   = parts[0].trim();
       const full = parts.slice(1).join(',').trim();
-      if (!ip || !full) continue;
-      if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) continue;
+      if (!ip || !full) { issues.push({ line: i + 1, text: l, reason: 'expected "IP,domain"' }); continue; }
+      if (!isValidIp(ip)) { issues.push({ line: i + 1, text: l, reason: 'invalid IPv4 address' }); continue; }
+      if (!isValidDomain(full)) { issues.push({ line: i + 1, text: l, reason: 'invalid domain format' }); continue; }
       const root = rootDomain(full);
       rows.push(root + ',' + full + ',TXT,"v=spf1 ip4:' + ip + ' -all"');
     }
-    return rows;
+    return { rows: rows, issues: issues };
   }
 
   function setStatus(msg, type) {
@@ -881,10 +914,31 @@ function toggleTheme() {
     lineCount.className = 'spf-counter' + (n > 0 ? ' has-lines' : '');
   }
 
+  const warnBox = document.getElementById('spf-warnings');
+
+  function renderWarnings(issues) {
+    if (!issues.length) { warnBox.style.display = 'none'; warnBox.innerHTML = ''; return; }
+    const max = 6;
+    const shown = issues.slice(0, max);
+    warnBox.innerHTML = shown.map(function (w) {
+      return '<div><span class="ln">L' + w.line + '</span><span>' + escapeHtml(w.text) + ' — ' + w.reason + '</span></div>';
+    }).join('') + (issues.length > max ? '<div>+' + (issues.length - max) + ' more…</div>' : '');
+    warnBox.style.display = 'block';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
   function render() {
-    const rows = generate();
+    const { rows, issues } = generate();
     out.value = rows.join('\n');
-    if (rows.length > 0) {
+    renderWarnings(issues);
+    if (rows.length > 0 && issues.length > 0) {
+      setStatus(rows.length + ' generated, ' + issues.length + ' skipped', 'info');
+    } else if (rows.length > 0) {
       setStatus(rows.length + ' record' + (rows.length > 1 ? 's' : '') + ' generated', 'ok');
     } else if (inp.value.trim()) {
       setStatus('no valid entries found', 'err');
@@ -899,6 +953,8 @@ function toggleTheme() {
   resetBtn.addEventListener('click', function () {
     inp.value = '';
     out.value = '';
+    warnBox.style.display = 'none';
+    warnBox.innerHTML = '';
     setStatus('ready', '');
     updateCounter();
   });
@@ -913,7 +969,7 @@ function toggleTheme() {
     navigator.clipboard.writeText(out.value).then(function () {
       setStatus('copied to clipboard', 'info');
       setTimeout(function () {
-        const rows = generate();
+        const rows = generate().rows;
         if (rows.length > 0) setStatus(rows.length + ' record' + (rows.length > 1 ? 's' : '') + ' generated', 'ok');
         else setStatus('ready', '');
       }, 1800);
