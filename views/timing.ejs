@@ -1255,7 +1255,9 @@ function parseTelegram() {
   // Each IP line in the feedback looks like: IP | limit | sent
   // A manually-set IP Limit overrides that parsed per-IP value for every IP.
   const ipsContent    = ipLines.map(m => {
-    const perIpLimit = manualLimit !== null ? manualLimit : (parseInt(m[2]) || 24000);
+    const parsedIpLimit = parseInt(m[2]);
+    const fallbackLimit = Number.isNaN(parsedIpLimit) ? 24000 : parsedIpLimit;
+    const perIpLimit    = manualLimit !== null ? manualLimit : fallbackLimit;
     return `${m[1]}\t${perIpLimit}\t${increment}`;
   }).join('\n');
   const offsetContent = scheduleLines.join('\n');
