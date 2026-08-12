@@ -819,8 +819,12 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
               <input id="tg-pack" class="f-input f-mono" type="text" placeholder="auto-filled from feedback" oninput="pinAndParse('tg-pack','tg')">
             </div>
             <div class="field">
-              <label class="f-label">IP Limit (per IP) <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3);">(fallback only)</span></label>
+              <label class="f-label">IP Limit (per IP) <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3);">(overrides all IPs if set)</span></label>
               <input id="tg-limit" class="f-input f-mono" type="number" placeholder="24000" oninput="parseTelegram()">
+            </div>
+            <div class="field">
+              <label class="f-label">Increment / Drop <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3);">(3rd column)</span></label>
+              <input id="tg-increment" class="f-input f-mono" type="number" placeholder="250" oninput="parseTelegram()">
             </div>
             <div class="field">
               <label class="f-label">Start Time <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3);">(auto-filled)</span></label>
@@ -937,14 +941,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             </div>
           </div>
           <div class="btn-row">
-            <button type="button" class="btn-action btn-download" onclick="dl('tg-ips')">
-              <i class="bi bi-download"></i> Download IPs File
-            </button>
             <button type="button" class="btn-action btn-copy" id="copy-tg-ips" onclick="copyStored('tg-ips','copy-tg-ips')">
               <i class="bi bi-clipboard"></i> Copy IPs File
-            </button>
-            <button type="button" class="btn-action btn-download" onclick="dl('tg-offset')">
-              <i class="bi bi-download"></i> Download Offset File
             </button>
             <button type="button" class="btn-action btn-copy" id="copy-tg-offset" onclick="copyStored('tg-offset','copy-tg-offset')">
               <i class="bi bi-clipboard"></i> Copy Offset File
@@ -968,9 +966,6 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <div class="out-box" id="fl-offset-box"></div>
           </div>
           <div class="btn-row">
-            <button type="button" class="btn-action btn-download" onclick="dl('fl-offset')">
-              <i class="bi bi-download"></i> Download Offset File
-            </button>
             <button type="button" class="btn-action btn-copy" id="copy-fl-offset" onclick="copyStored('fl-offset','copy-fl-offset')">
               <i class="bi bi-clipboard"></i> Copy Offset File
             </button>
@@ -1196,7 +1191,15 @@ function parseTelegram() {
   const id          = newsIdField || parsedId;  // manual News ID takes priority
   const campaign    = $('tg-campaign').value.trim() || (listMatch ? listMatch[1] : 'CAMPAIGN_NAME');
   const pack        = $('tg-pack').value.trim()     || (packMatch ? packMatch[1] : 'IP_FROM');
-  const fallbackLimit = parseInt($('tg-limit').value)  || 24000;
+
+  // Manual IP Limit, when filled in, overrides every IP's parsed per-IP limit.
+  // Left empty, each IP keeps the limit parsed from its own feedback line (or 24000 if that's missing too).
+  const limitFieldVal = $('tg-limit').value.trim();
+  const manualLimit   = limitFieldVal !== '' ? parseInt(limitFieldVal) : null;
+
+  // Increment written into the 3rd column of the IPs file (how much quota grows per drop).
+  const increment = parseInt($('tg-increment').value) || 0;
+
   const interval    = parseFloat($('tg-interval').value) || 2;
 
   // Start time: manual field wins, then parsed from feedback
@@ -1232,19 +1235,22 @@ function parseTelegram() {
   if (endMins <= startMins) endMins += 24 * 60;
 
   let cur = startMins;
+  let isFirst = true;
   while (cur <= endMins) {
     const hh = String(Math.floor(cur / 60) % 24).padStart(2, '0');
     const mm = String(cur % 60).padStart(2, '0');
-    scheduleLines.push(`${hh}:${mm};${id};${campaign};${pack}`);
+    const timeLabel = isFirst ? 'now' : `${hh}:${mm}`;
+    scheduleLines.push(`${timeLabel};${id};${campaign};${pack}`);
+    isFirst = false;
     cur += interval * 60;
   }
 
   // ── Build IPs file (tab-separated) ──────────────────────────────────────────
   // Each IP line in the feedback looks like: IP | limit | sent
-  // Use that per-IP limit (2nd column) rather than a single fixed value.
+  // A manually-set IP Limit overrides that parsed per-IP value for every IP.
   const ipsContent    = ipLines.map(m => {
-    const perIpLimit = parseInt(m[2]) || fallbackLimit;
-    return `${m[1]}\t${perIpLimit}\t0`;
+    const perIpLimit = manualLimit !== null ? manualLimit : (parseInt(m[2]) || 24000);
+    return `${m[1]}\t${perIpLimit}\t${increment}`;
   }).join('\n');
   const offsetContent = scheduleLines.join('\n');
 
@@ -1257,14 +1263,7 @@ function parseTelegram() {
   updatePreviewColumn();
 
   makeChips($('tg-chips'), [
-    ['ID', id],
-    ['IPs found', ipLines.length],
-    ['Campaign', campaign],
-    ['Pack', pack],
-    ['Start', startTime],
-    ['End', endTime],
     ['Drops', scheduleLines.length],
-    ['Interval', `${interval}h`],
   ]);
 }
 
@@ -1328,10 +1327,13 @@ function parseFileLine() {
 
   const scheduleLines = [];
   let cur = startMins;
+  let isFirst = true;
   while (cur <= endMins) {
     const hh = String(Math.floor(cur / 60) % 24).padStart(2, '0');
     const mm = String(cur % 60).padStart(2, '0');
-    scheduleLines.push(`${hh}:${mm};${id};${name};${pack}`);
+    const timeLabel = isFirst ? 'now' : `${hh}:${mm}`;
+    scheduleLines.push(`${timeLabel};${id};${name};${pack}`);
+    isFirst = false;
     cur += interval * 60;
   }
 
@@ -1344,9 +1346,7 @@ function parseFileLine() {
   updatePreviewColumn();
 
   makeChips($('fl-chips'), [
-    ['ID', id], ['Name', name], ['Pack', pack],
-    ['Start', startTime], ['End', endTime],
-    ['Drops', scheduleLines.length], ['Interval', `${interval}h`],
+    ['Drops', scheduleLines.length],
   ]);
 }
 
