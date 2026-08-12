@@ -1202,10 +1202,20 @@ function parseTelegram() {
 
   const interval    = parseFloat($('tg-interval').value) || 2;
 
-  // Start time: manual field wins, then parsed from feedback
-  const startFieldVal = $('tg-starttime').value.trim();
-  const startTime     = /^\d{1,2}:\d{2}$/.test(startFieldVal) ? startFieldVal
-                      : parsedTime || null;
+  // Start time basis for the schedule:
+  // - If the user manually typed (pinned) the Start Time field, that exact
+  //   time anchors the schedule, and the first drop is labelled with that
+  //   time instead of "now".
+  // - Otherwise (field empty, or only auto-filled from "Warming Start at:"
+  //   in the feedback text), the schedule is anchored to the real current
+  //   clock time and the first drop stays labelled "now" — this is default.
+  const startFieldVal   = $('tg-starttime').value.trim();
+  const manualStartTime = /^\d{1,2}:\d{2}$/.test(startFieldVal) ? startFieldVal : null;
+  const userSetStart    = !!(_pinned['tg-starttime'] && manualStartTime);
+
+  const now       = new Date();
+  const nowTime   = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startTime = userSetStart ? manualStartTime : nowTime;
 
   // End time: default 00:00
   const endFieldVal = $('tg-endtime').value.trim();
@@ -1218,10 +1228,6 @@ function parseTelegram() {
   }
   if (ipLines.length === 0) {
     showAlert('tg-alert', '❌ Could not find any IP addresses in the message.');
-    return;
-  }
-  if (!startTime) {
-    showAlert('tg-alert', '❌ Could not detect Start Time. Please fill it manually.');
     return;
   }
 
@@ -1239,7 +1245,7 @@ function parseTelegram() {
   while (cur <= endMins) {
     const hh = String(Math.floor(cur / 60) % 24).padStart(2, '0');
     const mm = String(cur % 60).padStart(2, '0');
-    const timeLabel = isFirst ? 'now' : `${hh}:${mm}`;
+    const timeLabel = isFirst ? (userSetStart ? startTime : 'now') : `${hh}:${mm}`;
     scheduleLines.push(`${timeLabel};${id};${campaign};${pack}`);
     isFirst = false;
     cur += interval * 60;
@@ -1310,9 +1316,20 @@ function parseFileLine() {
   const pack      = $('fl-pack').value.trim() || parsedPack;
   const interval  = parseFloat($('fl-interval').value) || 2;
 
-  // Start time: manual field wins, then falls back to the line's own time
-  const startFieldVal = $('fl-starttime').value.trim();
-  const startTime      = /^\d{1,2}:\d{2}$/.test(startFieldVal) ? startFieldVal : rawTime;
+  // Start time basis for the schedule:
+  // - If the user manually typed (pinned) the Start Time field, that exact
+  //   time anchors the schedule, and the first drop is labelled with that
+  //   time instead of "now".
+  // - Otherwise (field left as auto-filled from the pasted line's own time),
+  //   the schedule is anchored to the real current clock time and the first
+  //   drop stays labelled "now" — this is the default behavior.
+  const startFieldVal   = $('fl-starttime').value.trim();
+  const manualStartTime = /^\d{1,2}:\d{2}$/.test(startFieldVal) ? startFieldVal : null;
+  const userSetStart    = !!(_pinned['fl-starttime'] && manualStartTime);
+
+  const now       = new Date();
+  const nowTime   = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startTime = userSetStart ? manualStartTime : nowTime;
 
   // End time: default 00:00
   const endFieldVal = $('fl-endtime').value.trim();
@@ -1331,7 +1348,7 @@ function parseFileLine() {
   while (cur <= endMins) {
     const hh = String(Math.floor(cur / 60) % 24).padStart(2, '0');
     const mm = String(cur % 60).padStart(2, '0');
-    const timeLabel = isFirst ? 'now' : `${hh}:${mm}`;
+    const timeLabel = isFirst ? (userSetStart ? startTime : 'now') : `${hh}:${mm}`;
     scheduleLines.push(`${timeLabel};${id};${name};${pack}`);
     isFirst = false;
     cur += interval * 60;
