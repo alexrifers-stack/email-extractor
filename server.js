@@ -244,7 +244,15 @@ function cleanHeadersOnly(email, options) {
             if (options.addSender1) cleaned.push("Sender: " + SENDER_VAL)
             continue
         }
-        if (/^Subject:/i.test(line)) { cleaned.push("Subject: " + SUBJECT_VAL); continue }
+        if (/^Subject:/i.test(line)) {
+            // Only replace if the user actually filled in the Subject Value field
+            if (options.SUBJECT_VAL && options.SUBJECT_VAL.trim()) {
+                cleaned.push("Subject: " + options.SUBJECT_VAL.trim())
+            } else {
+                cleaned.push(line)
+            }
+            continue
+        }
         if (/^To:/i.test(line)) { cleaned.push("To: <[*to]>"); cleaned.push("Cc: [*to]"); continue }
         if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + CONTENT_TYPE_VAL); continue }
         cleaned.push(line)
