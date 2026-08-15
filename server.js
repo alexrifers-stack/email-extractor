@@ -244,19 +244,33 @@ function cleanHeadersOnly(email, options) {
             if (options.addSender1) cleaned.push("Sender: " + SENDER_VAL)
             continue
         }
-        if (/^Subject:/i.test(line)) {
-            // Only replace if the user actually filled in the Subject Value field
-            if (options.SUBJECT_VAL && options.SUBJECT_VAL.trim()) {
-                cleaned.push("Subject: " + options.SUBJECT_VAL.trim())
-            } else {
-                cleaned.push(line)
-            }
-            continue
-        }
+        if (/^Subject:/i.test(line)) { cleaned.push("Subject: " + SUBJECT_VAL); continue }
         if (/^To:/i.test(line)) { cleaned.push("To: <[*to]>"); cleaned.push("Cc: [*to]"); continue }
         if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + CONTENT_TYPE_VAL); continue }
         cleaned.push(line)
     }
+
+    // ── Apply custom edit params ──────────────────────────────────────────────
+    var editParams = Array.isArray(options.editParams) ? options.editParams : []
+    editParams.forEach(function(param) {
+        if (!param.name || param.name.trim() === '') return
+        var headerName = param.name.trim()
+        var headerValue = (param.value || '').trim()
+        var pattern = new RegExp('^' + headerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':', 'i')
+        var found = false
+        for (var k = 0; k < cleaned.length; k++) {
+            if (pattern.test(cleaned[k])) {
+                cleaned[k] = headerName + ': ' + headerValue
+                found = true
+                break
+            }
+        }
+        // If not found and addIfMissing is true, insert it after the last cleaned header line
+        if (!found && param.addIfMissing) {
+            cleaned.push(headerName + ': ' + headerValue)
+        }
+    })
+
     return cleaned.join("\n") + "\n"
 }
 
@@ -315,10 +329,13 @@ async function runExtraction(req, res) {
                     addSubjectID: req.body.addSubjectID === 'on'
                 }))
             } else if (mode === "headersonly") {
+                var editParams = []
+                try { editParams = JSON.parse(req.body.editParams || '[]') } catch(e) { editParams = [] }
                 results.push(cleanHeadersOnly(raw, {
                     FROM_VAL: req.body.FROM_VAL, SUBJECT_VAL: req.body.SUBJECT_VAL,
                     CONTENT_TYPE_VAL: req.body.CONTENT_TYPE_VAL, SENDER_VAL: req.body.SENDER_VAL,
-                    addSender1: req.body.addSender1
+                    addSender1: req.body.addSender1,
+                    editParams: editParams
                 }))
             } else if (mode === "bodyonly") {
                 var body = await getRawBody(raw)
