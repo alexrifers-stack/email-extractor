@@ -486,6 +486,55 @@ body.pink-dark .mode-card input:checked + .mode-inner .radio-ring::after { backg
 .headers-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 620px) { .headers-3col { grid-template-columns: 1fr 1fr; } .headers-2col { grid-template-columns: 1fr; } }
 .f-mono { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; }
+
+/* ── Edit Params ── */
+.edit-params-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16px; margin-bottom: 8px;
+}
+.edit-params-label {
+  font-size: 0.71rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-2); font-family: 'IBM Plex Mono', monospace;
+}
+.btn-add-param {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 99px; font-size: 0.72rem; font-weight: 700;
+  border: 1px solid var(--accent-bd, rgba(31,122,140,0.30));
+  background: var(--accent-dim); color: var(--accent);
+  cursor: pointer; transition: all 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.btn-add-param:hover { background: var(--accent); color: #fff; }
+body.dm .btn-add-param:hover { color: #10182a; }
+body.pink .btn-add-param:hover, body.pink-dark .btn-add-param:hover { color: #0d0008; }
+
+.edit-param-rows { display: flex; flex-direction: column; gap: 8px; }
+.edit-param-row {
+  background: var(--bg-surface); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  animation: revealDown 0.18s ease;
+}
+.edit-param-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 560px) { .edit-param-fields { grid-template-columns: 1fr; } }
+.edit-param-sub-label {
+  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 4px; font-family: 'IBM Plex Mono', monospace; display: block;
+}
+.edit-param-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.edit-param-check {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.74rem; color: var(--text-2); font-weight: 500; cursor: pointer;
+}
+.edit-param-check input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.btn-remove-param {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 99px; font-size: 0.7rem; font-weight: 600;
+  border: 1px solid rgba(185,64,64,0.22); background: transparent; color: var(--red);
+  cursor: pointer; transition: all 0.14s; font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.btn-remove-param:hover { background: var(--red-dim); border-color: rgba(185,64,64,0.40); }
 .btn-extract {
   width: 100%; height: 52px;
   background: var(--accent);
@@ -908,7 +957,19 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <label class="f-label">Sender Format</label>
             <input name="SENDER_VAL" class="f-input f-mono" value="noreply@[RDNS]" placeholder="noreply@[RDNS]">
           </div>
-          <div class="field-hint" style="margin-top:4px;">
+
+          <!-- EDIT PARAMS -->
+          <div class="edit-params-head">
+            <span class="edit-params-label">Additional Parameters</span>
+            <button type="button" class="btn-add-param" onclick="addEditParam()">
+              <i class="bi bi-plus-lg"></i> Add Param
+            </button>
+          </div>
+          <div class="edit-param-rows" id="editParamRows"></div>
+          <!-- serialized JSON sent with form -->
+          <input type="hidden" name="editParams" id="editParamsJson" value="[]">
+
+          <div class="field-hint" style="margin-top:10px;">
             <i class="bi bi-info-circle" style="font-size:10px;"></i>
             <span>Outputs cleaned headers only — body is stripped</span>
           </div>
@@ -1097,6 +1158,61 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
   addSender1Chk.addEventListener('change', syncSenderFormat);
   syncSenderFormat();
 
+  // ── Edit Params ───────────────────────────────────────────────────────────
+  var editParamCount = 0;
+
+  function addEditParam(name, value, addIfMissing) {
+    editParamCount++;
+    var id = 'ep_' + editParamCount;
+    var row = document.createElement('div');
+    row.className = 'edit-param-row';
+    row.id = id;
+    row.innerHTML =
+      '<div class="edit-param-fields">' +
+        '<div>' +
+          '<span class="edit-param-sub-label">Header Name</span>' +
+          '<input type="text" class="f-input f-mono ep-name" placeholder="e.g. X-Mailer" value="' + (name || '') + '" oninput="serializeEditParams()">' +
+        '</div>' +
+        '<div>' +
+          '<span class="edit-param-sub-label">New Value</span>' +
+          '<input type="text" class="f-input f-mono ep-value" placeholder="e.g. My Mailer 1.0" value="' + (value || '') + '" oninput="serializeEditParams()">' +
+        '</div>' +
+      '</div>' +
+      '<div class="edit-param-foot">' +
+        '<label class="edit-param-check">' +
+          '<input type="checkbox" class="ep-addif"' + (addIfMissing ? ' checked' : '') + ' onchange="serializeEditParams()"> ' +
+          'Add if not found in headers' +
+        '</label>' +
+        '<button type="button" class="btn-remove-param" onclick="removeEditParam(\'' + id + '\')">' +
+          '<i class="bi bi-x"></i> Remove' +
+        '</button>' +
+      '</div>';
+    document.getElementById('editParamRows').appendChild(row);
+    serializeEditParams();
+  }
+  window.addEditParam = addEditParam;
+
+  function removeEditParam(id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+    serializeEditParams();
+  }
+  window.removeEditParam = removeEditParam;
+
+  function serializeEditParams() {
+    var rows = document.querySelectorAll('.edit-param-row');
+    var params = [];
+    rows.forEach(function(row) {
+      var name  = row.querySelector('.ep-name').value.trim();
+      var value = row.querySelector('.ep-value').value.trim();
+      var addIf = row.querySelector('.ep-addif').checked;
+      if (name) params.push({ name: name, value: value, addIfMissing: addIf });
+    });
+    document.getElementById('editParamsJson').value = JSON.stringify(params);
+  }
+  window.serializeEditParams = serializeEditParams;
+  // ─────────────────────────────────────────────────────────────────────────
+
   const newsletterToggle = document.getElementById('newsletterToggle');
   const newsletterBox    = document.getElementById('newsletterBox');
   function syncNewsletterBox() {
@@ -1174,6 +1290,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     lastFilename = fileNames[mode] || 'merged_emails.txt';
 
     try {
+      // Always sync edit params JSON before submitting
+      if (typeof serializeEditParams === 'function') serializeEditParams();
       const formData = new FormData(form);
       const params   = new URLSearchParams();
       for (const [k, v] of formData.entries()) params.append(k, v);
