@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Email Extraction · CMH9 Tools</title>
+<title>Email Extraction · KRIMBOCH Tools</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -705,8 +705,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     <div class="brand">
       <div class="brand-logo">📧</div>
       <div>
-        <div class="brand-name">Email Extraction #CMH9</div>
-        <div class="brand-tag">CMH9 &nbsp;·&nbsp; v2.3 &nbsp;·&nbsp; Admin</div>
+        <div class="brand-name">Email Extraction #KRIMBOCH</div>
+        <div class="brand-tag">KRIMBOCH &nbsp;·&nbsp; v2.3 &nbsp;·&nbsp; Admin</div>
       </div>
     </div>
     <div class="topbar-right">
@@ -1046,7 +1046,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     <div class="foot-brand">
       <div class="foot-logo">🚀</div>
       <div>
-        <div class="foot-name">CMH9 Extractor</div>
+        <div class="foot-name">KRIMBOCH Extractor</div>
         <span class="foot-copy">© <span id="yr"></span> <span id="footAuthor">Karim Rachmoun </span> <span id="termsLink" style="cursor:pointer;">-</span> All rights
           <span class="foot-link-wrap" style="display:inline-block;">
             reserved
@@ -1102,7 +1102,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     else if (t === 'pink-dark')  document.body.classList.add('pink-dark');
     const isPink = ['pink','pink-light','pink-dark'].includes(t);
     ico.className = t === 'dark' ? 'bi bi-moon-stars-fill' : isPink ? 'bi bi-flower2' : 'bi bi-sun-fill';
-    localStorage.setItem('cmh9theme', t);
+    localStorage.setItem('KRIMBOCHtheme', t);
     // update active state on the 3 buttons
     const ids = { 'pink': 'mode3BtnDark', 'pink-light': 'mode3BtnLight', 'pink-dark': 'mode3BtnDm' };
     ['mode3BtnDark','mode3BtnLight','mode3BtnDm'].forEach(id => {
@@ -1117,10 +1117,10 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     if (footAuthor) footAuthor.textContent = isPink ? 'Nour Aassifar & Karim' : 'Karim Rachmoun';
   }
   function toggleTheme() {
-    applyTheme(localStorage.getItem('cmh9theme') === 'dark' ? 'light' : 'dark');
+    applyTheme(localStorage.getItem('KRIMBOCHtheme') === 'dark' ? 'light' : 'dark');
   }
   function setMode3(variant) {
-    const cur = localStorage.getItem('cmh9theme');
+    const cur = localStorage.getItem('KRIMBOCHtheme');
     applyTheme(cur === variant ? 'light' : variant);
     document.getElementById('mode3Pop').classList.remove('show');
   }
@@ -1134,7 +1134,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     if (!mode3Pop.contains(e.target) && e.target !== termsLink) mode3Pop.classList.remove('show');
   });
   window.addEventListener('DOMContentLoaded', () => {
-    applyTheme(localStorage.getItem('cmh9theme') || 'light');
+    applyTheme(localStorage.getItem('KRIMBOCHtheme') || 'light');
     const hasLabels = document.getElementById('labelSelect').options[0]?.text !== 'Connect First';
     if (hasLabels) setConnected(true);
   });
