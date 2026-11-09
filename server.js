@@ -418,4 +418,4 @@ app.get("/logout", function(req, res) {
 
 // ── START ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000
-app.listen(PORT, function() { console.log("🔥 CMH9 Extractor running on port " + PORT) })
+app.listen(PORT, function() { console.log("🔥 KRIMBOCH Extractor running on port " + PORT) })
