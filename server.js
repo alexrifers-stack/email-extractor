@@ -7,7 +7,7 @@ const path         = require("path")
 
 const app = express()
 
-// ── SIDEBAR NAVIGATION ────────────────────────────────────────────────────────
+// ── SIDEBAR NAVIGATION ──────────────────────a──────────────────────────────────
 // Single source of truth for the app's sidebar. Add a new { id, label, href, icon }
 // entry here whenever a new route/tool is introduced, and it will show up in the
 // sidebar on every page automatically.
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
     {
         id: "extract",
         label: "Extraction",
-        href: "/",
+        // href: "/",
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>'
     },
     {
@@ -283,6 +283,18 @@ async function getRawBody(raw) {
     return bodyParts.join("\n")
 }
 
+function extractCssOnly(html) {
+    if (!html) return ""
+    var docMatch = html.match(/<!DOCTYPE[\s\S]*?>/i)
+    if (!docMatch) return ""
+    var startIdx = html.indexOf(docMatch[0])
+    var styleCloses = [...html.matchAll(/<\/style\s*>/gi)]
+    if (!styleCloses.length) return ""
+    var lastClose = styleCloses[styleCloses.length - 1]
+    var endIdx = lastClose.index + lastClose[0].length
+    return html.slice(startIdx, endIdx).trim()
+}
+
 async function runExtraction(req, res) {
     try {
         const { email, password, label, start, limit, mode } = req.body
@@ -340,6 +352,10 @@ async function runExtraction(req, res) {
             } else if (mode === "bodyonly") {
                 var body = await getRawBody(raw)
                 if (body && body.trim()) results.push(body.trim())
+            } else if (mode === "cssonly") {
+                var htmlBody = await getRawBody(raw)
+                var css = extractCssOnly(htmlBody)
+                if (css && css.trim()) results.push(css.trim())
             } else if (mode === "receivedonly") {
                 var receivedLines = []
                 var rawLines = raw.split(/\r?\n/)
