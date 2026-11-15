@@ -7,7 +7,7 @@ const path         = require("path")
 
 const app = express()
 
-// ── SIDEBAR NAVIGATION ──────────────────────a──────────────────────────────────
+// ── SIDEBAR NAVIGATION ────────────────────────────────────────────────────────
 // Single source of truth for the app's sidebar. Add a new { id, label, href, icon }
 // entry here whenever a new route/tool is introduced, and it will show up in the
 // sidebar on every page automatically.
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
     {
         id: "extract",
         label: "Extraction",
-        // href: "/",
+        href: "/",
         icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>'
     },
     {
@@ -283,11 +283,13 @@ async function getRawBody(raw) {
     return bodyParts.join("\n")
 }
 
-function extractCssOnly(html) {
+function extractCssOnly(html, includeDoctype) {
     if (!html) return ""
     var docMatch = html.match(/<!DOCTYPE[\s\S]*?>/i)
     if (!docMatch) return ""
-    var startIdx = html.indexOf(docMatch[0])
+    var docStartIdx = html.indexOf(docMatch[0])
+    var docEndIdx = docStartIdx + docMatch[0].length
+    var startIdx = includeDoctype ? docStartIdx : docEndIdx
     var styleCloses = [...html.matchAll(/<\/style\s*>/gi)]
     if (!styleCloses.length) return ""
     var lastClose = styleCloses[styleCloses.length - 1]
@@ -295,19 +297,47 @@ function extractCssOnly(html) {
     return html.slice(startIdx, endIdx).trim()
 }
 
+function extractCleanCss(html) {
+    if (!html) return ""
+    var matches = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
+    if (!matches.length) return ""
+    return matches.map(function(m) { return m[1].trim() }).filter(Boolean).join("\n\n")
+}
+
+// Opens the mailbox, runs the same "all mail, newest first, start/limit slice"
+// selection used by extraction, and returns the matching message numbers.
+// Caller is responsible for releasing the returned lock.
+async function selectRange(client, label, start, limit) {
+    var lock = await client.getMailboxLock(label)
+    var startNum = parseInt(start)
+    var limitNum = parseInt(limit)
+    var uids = await client.search({ all: true })
+    uids.reverse()
+    var selected = uids.slice(startNum - 1, startNum - 1 + limitNum)
+    return { lock: lock, selected: selected }
+}
+
 async function runExtraction(req, res) {
     try {
         const { email, password, label, start, limit, mode } = req.body
         const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: email, pass: password } })
         await client.connect()
-        var lock = await client.getMailboxLock(label)
-        var startNum = parseInt(start)
-        var limitNum = parseInt(limit)
+        var range = await selectRange(client, label, start, limit)
+        var lock = range.lock
+        var selected = range.selected
         var results = []
-        var uids = await client.search({ all: true })
-        uids.reverse()
-        var selected = uids.slice(startNum - 1, startNum - 1 + limitNum)
         if (selected.length === 0) throw new Error("Start range too big")
+
+        // Delete Emails mode: skip fetching/parsing entirely, just remove the range
+        if (mode === "delete") {
+            await client.messageDelete(selected)
+            lock.release()
+            await client.logout()
+            res.setHeader("Content-Type", "text/plain; charset=utf-8")
+            res.send("✅ Deleted " + selected.length + " email(s) from the mailbox.")
+            return
+        }
+
         for (var i = 0; i < selected.length; i++) {
             var uid = selected[i]
             var msg = await client.fetchOne(uid, { source: true })
@@ -354,8 +384,13 @@ async function runExtraction(req, res) {
                 if (body && body.trim()) results.push(body.trim())
             } else if (mode === "cssonly") {
                 var htmlBody = await getRawBody(raw)
-                var css = extractCssOnly(htmlBody)
+                var includeDoctype = req.body.includeDoctype === 'on'
+                var css = extractCssOnly(htmlBody, includeDoctype)
                 if (css && css.trim()) results.push(css.trim())
+            } else if (mode === "cssclean") {
+                var htmlBody2 = await getRawBody(raw)
+                var cleanCss = extractCleanCss(htmlBody2)
+                if (cleanCss && cleanCss.trim()) results.push(cleanCss.trim())
             } else if (mode === "receivedonly") {
                 var receivedLines = []
                 var rawLines = raw.split(/\r?\n/)
