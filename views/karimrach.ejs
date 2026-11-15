@@ -851,7 +851,23 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
               <input type="radio" name="mode" value="cssonly">
               <div class="mode-inner">
                 <div class="mode-ico">🎨</div>
-                <div><div class="mode-title">CSS Only</div><div class="mode-desc">From &lt;!DOCTYPE&gt; to the end of the CSS</div></div>
+                <div><div class="mode-title">CSS + Markup</div><div class="mode-desc">From &lt;!DOCTYPE&gt; to the end of the CSS</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card" style="border-color: var(--red-dim);">
+              <input type="radio" name="mode" value="delete">
+              <div class="mode-inner">
+                <div class="mode-ico">🗑️</div>
+                <div><div class="mode-title" style="color: var(--red);">Delete Emails</div><div class="mode-desc">Permanently deletes the selected Start/Limit range from the mailbox — no extraction</div></div>
+                <div class="radio-ring"></div>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="cssclean">
+              <div class="mode-inner">
+                <div class="mode-ico">✨</div>
+                <div><div class="mode-title">CSS Only (Clean)</div><div class="mode-desc">Pure CSS code — no HTML tags at all</div></div>
                 <div class="radio-ring"></div>
               </div>
             </label>
@@ -984,6 +1000,23 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
         </div>
       </div>
 
+      <!-- CSS OPTIONS -->
+      <div class="panel" id="cssOptions" style="display:none;">
+        <div class="panel-head">
+          <div class="panel-ico ico-cyan">🎨</div>
+          <span class="panel-title">CSS Parameters</span>
+        </div>
+        <div class="panel-body">
+          <div class="checks-grid">
+            <label class="check-tile"><input type="checkbox" name="includeDoctype" id="includeDoctypeChk" checked><span>Include DOCTYPE</span></label>
+          </div>
+          <div class="field-hint" style="margin-top:10px;">
+            <i class="bi bi-info-circle" style="font-size:10px;"></i>
+            <span>Uncheck to strip the &lt;!DOCTYPE&gt; line and start from &lt;html&gt;</span>
+          </div>
+        </div>
+      </div>
+
       <!-- RESULT PANEL -->
       <div class="panel" id="resultPanel">
         <div class="panel-head">
@@ -1059,7 +1092,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
           <span class="foot-link-wrap" style="display:inline-block;">
             reserved
             <div class="mode3-pop" id="mode3Pop">
-              <div class="mode3-title">🎀 Mode PINK <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
+              <div class="mode3-title">🎀 Mode Nour <span style="color:var(--text-3);font-weight:500;">— Secret</span></div>
               <div class="mode3-desc">Choose your pink mood 🌸</div>
               <div class="mode3-btns">
                 <button type="button" class="mode3-btn mode3-btn-dark"  id="mode3BtnDark"  onclick="setMode3('pink')">🖤 Pink &amp; Black</button>
@@ -1122,7 +1155,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
       if (active) active.classList.add('is-active');
     }
     const footAuthor = document.getElementById('footAuthor');
-    if (footAuthor) footAuthor.textContent = isPink ? ' & Karim' : 'Karim Rachmoun & Halimoks';
+    if (footAuthor) footAuthor.textContent = isPink ? 'Nour Aassifar & Karim' : 'Karim Rachmoun';
   }
   function toggleTheme() {
     applyTheme(localStorage.getItem('KRIMBOCHtheme') === 'dark' ? 'light' : 'dark');
@@ -1150,10 +1183,12 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
   const radios     = document.querySelectorAll("input[name='mode']");
   const cleanBox   = document.getElementById('cleanOptions');
   const headersBox = document.getElementById('headersOptions');
+  const cssBox      = document.getElementById('cssOptions');
   function syncMode() {
     const val = document.querySelector("input[name='mode']:checked").value;
     cleanBox.style.display   = val === 'clean'       ? 'block' : 'none';
     headersBox.style.display = val === 'headersonly' ? 'block' : 'none';
+    cssBox.style.display     = val === 'cssonly'     ? 'block' : 'none';
   }
   radios.forEach(r => r.addEventListener('change', syncMode));
   syncMode();
@@ -1265,7 +1300,9 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     headersonly:  'file_CleanHeadersOnly.txt',
     bodyonly:     'file_BodyOnly.txt',
     original:     'merged_emails.txt',
-    receivedonly: 'file_ReceivedOnly.txt'
+    receivedonly: 'file_ReceivedOnly.txt',
+    cssonly:      'file_CSS_Markup.html',
+    cssclean:     'file_CSS_Clean.css'
   };
 
   let lastContent  = '';
@@ -1296,6 +1333,19 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
 
     const mode = document.querySelector("input[name='mode']:checked").value;
     lastFilename = fileNames[mode] || 'merged_emails.txt';
+
+    if (mode === 'delete') {
+      const startVal = parseInt(form.start.value) || 1;
+      const limitVal = parseInt(form.limit.value) || 0;
+      const confirmed = confirm('This will PERMANENTLY delete the selected Start/Limit range (' + startVal + ' to ' + (startVal + limitVal - 1) + ') from the mailbox. This cannot be undone. Continue?');
+      if (!confirmed) {
+        clearInterval(iv);
+        loadingBox.style.display = 'none';
+        extractBtn.disabled = false;
+        extractBtn.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Start Extraction';
+        return;
+      }
+    }
 
     try {
       // Always sync edit params JSON before submitting
