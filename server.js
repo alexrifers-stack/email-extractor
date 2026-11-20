@@ -137,16 +137,37 @@ function unfoldHeaders(email) {
     return rest.length ? unfolded + "\n\n" + rest : unfolded
 }
 
+// Shared default for the News-style Content-Type parameter — kept identical
+// across both Clean Headers and Header Only, per spec.
+const DEFAULT_CONTENT_TYPE = 'multipart/related;boundary="[BND]";type="multipart/alternative"'
+
+// Shared headers to strip from any News-style header rewrite.
+const REMOVE_HEADERS = [
+    'Delivered-To', 'ARC-Seal', 'ARC-Message-Signature',
+    'ARC-Authentication-Results', 'Return-Path',
+    'Received-SPF', 'Authentication-Results',
+    'DKIM-Signature', 'Sender', 'X-Received',
+    'X-Google-Smtp-Source'
+]
+
+// Inserts the given tag into the local part of a Message-ID, right before
+// the "@" (e.g. "<abc123@mail.com>" + "[EID]" -> "<abc123[EID]@mail.com>").
+// Returns the original line unchanged if it doesn't match the expected shape.
+function applyMessageIdTag(line, eidTag) {
+    var match = line.match(/<([^@>]+)@([^>]+)>/)
+    if (!match) return line
+    return "Message-ID: <" + match[1] + eidTag + "@" + match[2] + ">"
+}
+
+// Builds the From line in one of the two allowed formats:
+//   static -> From: fromnamenews <[smtp]>
+//   custom -> From: [From] <[smtp]>   (uses the user's custom From tag)
+function buildFromLine(fromFormat) {
+    return fromFormat === 'custom' ? "From: [From] <[smtp]>" : "From: fromnamenews <[smtp]>"
+}
+
 function cleanHeaders(email, options) {
     options = options || {}
-    const removeHeaders = [
-        'Delivered-To', 'ARC-Seal', 'ARC-Message-Signature',
-        'ARC-Authentication-Results', 'Return-Path',
-        'Received-SPF', 'Authentication-Results',
-        'DKIM-Signature', 'Sender', 'X-Received',
-        'X-Google-Smtp-Source'
-    ]
-    const domain = options.domain || "[RDNS]"
     const eid = options.eid || "[EID]"
     // Unfold continuation lines so every header is on one line
     email = unfoldHeaders(email)
@@ -154,10 +175,6 @@ function cleanHeaders(email, options) {
     var cleaned = []
     var skip = false
     var inHeaders = true
-    var ccExists = false
-    for (var i = 0; i < lines.length; i++) {
-        if (/^Cc:/i.test(lines[i])) ccExists = true
-    }
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i]
         // Blank line = end of headers; pass everything after through unchanged
@@ -167,43 +184,24 @@ function cleanHeaders(email, options) {
             continue
         }
         if (!inHeaders) { cleaned.push(line); continue }
-        if (removeHeaders.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
+        if (REMOVE_HEADERS.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
         if (skip) { if (/^\s/.test(line)) continue; skip = false }
-        if (/^Date:/i.test(line)) { cleaned.push(options.replaceDate ? "Date: [DATE]" : line); continue }
-        if (/^Received:/i.test(line)) { if (!options.keepReceived) continue }
-        if (/^Reply-To:/i.test(line)) { if (!options.keepReplyTo) continue }
+        if (/^Date:/i.test(line)) { cleaned.push("Date: [Date]"); continue }
+        if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
+        if (/^Reply-To:/i.test(line)) { if (options.keepReplyTo) cleaned.push(line); continue }
         if (/^Message-ID:/i.test(line)) {
-            var match = line.match(/<([^>]+)>/)
-            if (match) {
-                var msg = match[1]
-                if (msg.includes("@")) msg = msg.replace("@", eid + "@")
-                cleaned.push("Message-ID: <" + msg + ">"); continue
-            }
+            cleaned.push(options.addMessageId ? applyMessageIdTag(line, eid) : line)
+            continue
         }
         if (/^From:/i.test(line)) {
-            var angleMatch = line.match(/<([^@>]+)@([^>]+)>/)
-            if (angleMatch) { var local = angleMatch[1]; line = line.replace(/<([^@>]+)@([^>]+)>/, "<" + local + "@" + domain + ">") }
-            else {
-                var emailMatch = line.match(/([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+)/)
-                if (emailMatch) { var local2 = emailMatch[1]; line = line.replace(/([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+)/, local2 + "@" + domain) }
-            }
-            if (options.addFromID) line = line.replace(/^From:/i, 'From:[ID]')
-            cleaned.push(line)
+            cleaned.push(options.addFrom ? buildFromLine(options.fromFormat) : line)
             if (options.addSender) cleaned.push("Sender: noreply@[RDNS]")
             continue
         }
-        if (/^To:/i.test(line)) {
-            if (options.replaceTo) {
-                cleaned.push("To: [*to]")
-                if (options.addCc && !ccExists) { cleaned.push("Cc: [*to]"); ccExists = true }
-            } else { cleaned.push(line) }
-            continue
-        }
-        if (/^Cc:/i.test(line)) { if (options.addCc) { cleaned.push("Cc: [*to]"); continue } }
-        if (/^Subject:/i.test(line)) {
-            if (options.addSubjectID) line = line.replace(/^Subject:/i, 'Subject:[ID]')
-            cleaned.push(line); continue
-        }
+        if (/^To:/i.test(line)) { cleaned.push("To: <[to]>"); continue }
+        if (/^Cc:/i.test(line)) { continue } // Cc is never added or kept
+        if (/^Subject:/i.test(line)) { cleaned.push("Subject: [Subject]"); continue }
+        if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + DEFAULT_CONTENT_TYPE); continue }
         cleaned.push(line)
     }
     return cleaned.join("\n")
@@ -211,17 +209,9 @@ function cleanHeaders(email, options) {
 
 function cleanHeadersOnly(email, options) {
     options = options || {}
-    const removeHeaders = [
-        'Delivered-To', 'ARC-Seal', 'ARC-Message-Signature',
-        'ARC-Authentication-Results', 'Return-Path',
-        'Received-SPF', 'Authentication-Results',
-        'DKIM-Signature', 'Sender', 'X-Received',
-        'X-Google-Smtp-Source'
-    ]
-    const FROM_VAL         = options.FROM_VAL         || "[P_FRNAME]@[P_RPATH]"
-    const SUBJECT_VAL      = options.SUBJECT_VAL      || "[S]"
-    const CONTENT_TYPE_VAL = options.CONTENT_TYPE_VAL || "multipart/related;boundary=\"[BND]\";type=\"multipart/alternative\""
+    const CONTENT_TYPE_VAL = options.CONTENT_TYPE_VAL || DEFAULT_CONTENT_TYPE
     const SENDER_VAL       = options.SENDER_VAL       || "noreply@[RDNS]"
+    const eid              = options.eid              || "[EID]"
     // Unfold continuation lines so every header is on one line
     email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
@@ -231,21 +221,22 @@ function cleanHeadersOnly(email, options) {
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i]
         if (inHeaders && line.trim() === "") { inHeaders = false; break }
-        if (removeHeaders.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
+        if (REMOVE_HEADERS.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
         if (skip) { if (/^\s/.test(line)) continue; skip = false }
-        if (/^Date:/i.test(line)) { cleaned.push("Date: [DATE]"); continue }
+        if (/^Date:/i.test(line)) { cleaned.push("Date: [Date]"); continue }
+        if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
         if (/^Message-ID:/i.test(line)) {
-            var match = line.match(/<([^@>]+)@([^>]+)>/)
-            if (match) { cleaned.push("Message-ID: <" + match[1] + "[EID]@" + match[2] + ">") }
+            cleaned.push(options.addMessageId ? applyMessageIdTag(line, eid) : line)
             continue
         }
         if (/^From:/i.test(line)) {
-            cleaned.push("From: " + FROM_VAL)
+            cleaned.push(options.addFrom ? buildFromLine(options.fromFormat) : line)
             if (options.addSender1) cleaned.push("Sender: " + SENDER_VAL)
             continue
         }
-        if (/^Subject:/i.test(line)) { cleaned.push("Subject: " + SUBJECT_VAL); continue }
-        if (/^To:/i.test(line)) { cleaned.push("To: <[*to]>"); cleaned.push("Cc: [*to]"); continue }
+        if (/^Subject:/i.test(line)) { cleaned.push("Subject: [Subject]"); continue }
+        if (/^To:/i.test(line)) { cleaned.push("To: <[to]>"); continue }
+        if (/^Cc:/i.test(line)) { continue } // Cc is never added or kept
         if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + CONTENT_TYPE_VAL); continue }
         cleaned.push(line)
     }
@@ -304,43 +295,160 @@ function extractCleanCss(html) {
     return matches.map(function(m) { return m[1].trim() }).filter(Boolean).join("\n\n")
 }
 
-// Opens the mailbox, runs the same "all mail, newest first, start/limit slice"
-// selection used by extraction, and returns the matching message numbers.
+// Opens the mailbox and returns the message numbers for the requested
+// "newest first, start/limit slice" window.
+//
+// With no category filter (or all 5 Gmail inbox categories selected), this
+// takes the fast path: sequence numbers in IMAP are always assigned in
+// arrival order (1 = oldest ... exists = newest), so the newest-first slice
+// can be computed directly from the mailbox's message count
+// (lock.mailbox.exists) instead of calling search({all:true}) and
+// reversing/slicing a potentially huge array — on a mailbox with tens of
+// thousands of messages, that full search was slow enough to time out.
+// Returned numbers in this case are sequence numbers (uid: false).
+//
+// With a category subset selected (e.g. just Primary + Promotions), Gmail's
+// categories aren't separate IMAP folders or flags, so there's no way to
+// compute this arithmetically — every category lives interleaved in the
+// same sequence. Instead this runs a Gmail X-GM-RAW search for
+// "category:x OR category:y OR ...", scoped to the currently selected
+// mailbox, which returns real UIDs. Those are sorted ascending (oldest
+// first, matching sequence-number order) and the same newest-first
+// start/limit slice is taken from that filtered set. Returned numbers in
+// this case are real UIDs (uid: true), since there's no sequence-number
+// equivalent for a filtered subset.
+//
 // Caller is responsible for releasing the returned lock.
-async function selectRange(client, label, start, limit) {
+async function selectRange(client, label, start, limit, categories) {
     var lock = await client.getMailboxLock(label)
     var startNum = parseInt(start)
     var limitNum = parseInt(limit)
-    var uids = await client.search({ all: true })
-    uids.reverse()
-    var selected = uids.slice(startNum - 1, startNum - 1 + limitNum)
-    return { lock: lock, selected: selected }
+    var from = startNum
+    var to = startNum + limitNum - 1
+
+    var noFilter = !categories || !categories.length || categories.length >= 5
+    if (noFilter) {
+        var total = (lock.mailbox && lock.mailbox.exists) || client.mailbox.exists || 0
+        var selected = []
+        for (var i = from; i <= to && i <= total; i++) {
+            var seq = total - i + 1
+            if (seq < 1) break
+            selected.push(seq)
+        }
+        return { lock: lock, selected: selected, uid: false }
+    }
+
+    var rawQuery = '(' + categories.map(function(c) { return 'category:' + c }).join(' OR ') + ')'
+    var matches = await client.search({ gmailRaw: rawQuery }, { uid: true })
+    matches.sort(function(a, b) { return a - b })
+    var totalMatches = matches.length
+    var selected2 = []
+    for (var j = from; j <= to && j <= totalMatches; j++) {
+        var idx = totalMatches - j
+        if (idx < 0) break
+        selected2.push(matches[idx])
+    }
+    return { lock: lock, selected: selected2, uid: true }
+}
+
+// Finds the account's real Trash folder via the SPECIAL-USE extension
+// (Gmail supports this), rather than assuming the English "[Gmail]/Trash"
+// path, since locale/language settings can rename it.
+async function getTrashPath(client) {
+    try {
+        var boxes = await client.list()
+        for (var i = 0; i < boxes.length; i++) {
+            if (boxes[i].specialUse === '\\Trash') return boxes[i].path
+        }
+    } catch (e) { /* fall through to default below */ }
+    return "[Gmail]/Trash"
+}
+
+// Gmail only truly deletes a message once it is expunged out of Trash —
+// deleting it (flag + expunge) from any other label just removes that
+// label and the message stays in All Mail. So: move it into Trash first
+// (unless it's already there), then flag + expunge it from Trash itself.
+// Returns the number of messages permanently removed.
+async function permanentlyDelete(client, label, lock, selected, useUid) {
+    var trashPath = await getTrashPath(client)
+
+    // The IMAP UIDPLUS extension only guarantees a COPYUID mapping back for a
+    // *UID* MOVE — a plain sequence-number MOVE (what the fast path's
+    // sequence numbers would trigger) is not required to return one, and
+    // Gmail doesn't always send it for one, especially moving out of
+    // "[Gmail]/All Mail". Without that mapping we can't safely find the
+    // moved message(s) in Trash to expunge, so the message sits in Trash
+    // unpurged — still counted against storage. Fix: resolve to real UIDs
+    // first (a cheap UID-only fetch, no bodies) whenever `selected` are
+    // sequence numbers, then always issue a genuine UID MOVE below.
+    var uids = selected
+    if (!useUid) {
+        uids = []
+        for await (const msg of client.fetch(selected, { uid: true }, { uid: false })) {
+            uids.push(msg.uid)
+        }
+        if (!uids.length) {
+            lock.release()
+            throw new Error("Could not resolve the selected messages to UIDs")
+        }
+    }
+
+    if (label === trashPath) {
+        await client.messageDelete(uids, { uid: true })
+        lock.release()
+        return uids.length
+    }
+    var moveResult = await client.messageMove(uids, trashPath, { uid: true })
+    lock.release()
+    var trashUids = []
+    if (moveResult && moveResult.uidMap && moveResult.uidMap.size) {
+        moveResult.uidMap.forEach(function(destUid) { trashUids.push(Number(destUid)) })
+    }
+    if (!trashUids.length) {
+        throw new Error("Moved to Trash, but the server didn't confirm the new message IDs there, so they weren't purged — check Trash manually.")
+    }
+    var trashLock = await client.getMailboxLock(trashPath)
+    try {
+        // trashUids came from the MOVE's COPYUID response, so these are
+        // real UIDs in the Trash mailbox, not sequence numbers — must
+        // pass { uid: true } or ImapFlow will try to match them as
+        // sequence numbers instead and silently delete nothing.
+        await client.messageDelete(trashUids, { uid: true })
+    } finally {
+        trashLock.release()
+    }
+    return trashUids.length
 }
 
 async function runExtraction(req, res) {
     try {
         const { email, password, label, start, limit, mode } = req.body
+        var categories = []
+        if (req.body.category) {
+            categories = Array.isArray(req.body.category) ? req.body.category : [req.body.category]
+        }
         const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: email, pass: password } })
         await client.connect()
-        var range = await selectRange(client, label, start, limit)
+        var range = await selectRange(client, label, start, limit, categories)
         var lock = range.lock
         var selected = range.selected
+        var useUid = range.uid
         var results = []
         if (selected.length === 0) throw new Error("Start range too big")
 
-        // Delete Emails mode: skip fetching/parsing entirely, just remove the range
+        // Delete Emails mode: skip fetching/parsing entirely, just permanently
+        // purge the range (moved to Trash first, then expunged from Trash).
         if (mode === "delete") {
-            await client.messageDelete(selected)
-            lock.release()
+            var deletedCount = await permanentlyDelete(client, label, lock, selected, useUid)
             await client.logout()
             res.setHeader("Content-Type", "text/plain; charset=utf-8")
-            res.send("✅ Deleted " + selected.length + " email(s) from the mailbox.")
+            res.send("✅ Permanently deleted " + deletedCount + " email(s), including purging from Trash.")
             return
         }
 
         for (var i = 0; i < selected.length; i++) {
             var uid = selected[i]
-            var msg = await client.fetchOne(uid, { source: true })
+            var msg = await client.fetchOne(uid, { source: true }, { uid: useUid })
             var raw = msg.source.toString()
             if (mode === "plaintext") {
                 const parsed = await simpleParser(raw)
@@ -360,23 +468,26 @@ async function runExtraction(req, res) {
                 results.push(raw)
             } else if (mode === "clean") {
                 results.push(cleanHeaders(raw, {
-                    domain: req.body.domain, eid: req.body.eid,
-                    replaceDate:  req.body.replaceDate  === 'on',
-                    replaceTo:    req.body.replaceTo    === 'on',
+                    eid:          req.body.eid,
+                    addMessageId: req.body.addMessageId === 'on',
+                    addFrom:      req.body.addFrom      === 'on',
+                    fromFormat:   req.body.fromFormat,
                     keepReceived: req.body.keepReceived === 'on',
                     keepReplyTo:  req.body.keepReplyTo  === 'on',
-                    addCc:        req.body.addCc        === 'on',
-                    addSender:    req.body.addSender    === 'on',
-                    addFromID:    req.body.addFromID    === 'on',
-                    addSubjectID: req.body.addSubjectID === 'on'
+                    addSender:    req.body.addSender    === 'on'
                 }))
             } else if (mode === "headersonly") {
                 var editParams = []
                 try { editParams = JSON.parse(req.body.editParams || '[]') } catch(e) { editParams = [] }
                 results.push(cleanHeadersOnly(raw, {
-                    FROM_VAL: req.body.FROM_VAL, SUBJECT_VAL: req.body.SUBJECT_VAL,
-                    CONTENT_TYPE_VAL: req.body.CONTENT_TYPE_VAL, SENDER_VAL: req.body.SENDER_VAL,
-                    addSender1: req.body.addSender1,
+                    CONTENT_TYPE_VAL: req.body.CONTENT_TYPE_VAL,
+                    SENDER_VAL:       req.body.SENDER_VAL,
+                    addSender1:       req.body.addSender1   === 'on',
+                    eid:              req.body.EID_VAL,
+                    addMessageId:     req.body.addMessageId2 === 'on',
+                    addFrom:          req.body.addFrom2      === 'on',
+                    fromFormat:       req.body.fromFormat2,
+                    keepReceived:     req.body.keepReceived2 === 'on',
                     editParams: editParams
                 }))
             } else if (mode === "bodyonly") {
