@@ -859,7 +859,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
               <input type="radio" name="mode" value="delete">
               <div class="mode-inner">
                 <div class="mode-ico">🗑️</div>
-                <div><div class="mode-title" style="color: var(--red);">Delete Emails</div><div class="mode-desc">Permanently deletes the selected Start/Limit range, including purging it from Trash — no extraction</div></div>
+                <div><div class="mode-title" style="color: var(--red);">Delete Emails</div><div class="mode-desc">Permanently deletes the selected Start/Limit range from the mailbox — no extraction</div></div>
                 <div class="radio-ring"></div>
               </div>
             </label>
@@ -905,20 +905,6 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
               <span>0 emails in folder</span>
             </div>
           </div>
-          <div class="field">
-            <label class="f-label">Inbox Categories</label>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-              <label class="check-tile"><input type="checkbox" name="category" value="primary" checked><span>🏠 Primary</span></label>
-              <label class="check-tile"><input type="checkbox" name="category" value="promotions" checked><span>🏷️ Promotions</span></label>
-              <label class="check-tile"><input type="checkbox" name="category" value="social" checked><span>👥 Social</span></label>
-              <label class="check-tile"><input type="checkbox" name="category" value="updates" checked><span>📣 Updates</span></label>
-              <label class="check-tile"><input type="checkbox" name="category" value="forums" checked><span>💬 Forums</span></label>
-            </div>
-            <div class="field-hint" style="margin-top:6px;">
-              <i class="bi bi-info-circle-fill" style="font-size:10px;"></i>
-              <span>Only applies to the INBOX label. Everything stays sorted newest → oldest regardless of which categories you include.</span>
-            </div>
-          </div>
           <div class="params-2col">
             <div class="field">
               <label class="f-label">Start From</label>
@@ -939,23 +925,26 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
           <span class="panel-title">Header Modification</span>
         </div>
         <div class="panel-body">
+          <div class="clean-2col">
+            <div class="field">
+              <label class="f-label">Domain Replacement</label>
+              <input name="domain" class="f-input" value="[P_RPATH]" placeholder="[P_RPATH]">
+            </div>
+            <div class="field">
+              <label class="f-label">Message-ID Tag</label>
+              <input name="eid" class="f-input" value="[EID]" placeholder="[EID]">
+            </div>
+          </div>
+          <div class="divider"></div>
           <div class="checks-grid">
-            <label class="check-tile"><input type="checkbox" name="addMessageId" id="addMessageIdChk"><span>Add Message-ID</span></label>
-            <label class="check-tile"><input type="checkbox" name="addFrom" id="addFromChk"><span>Add From</span></label>
+            <label class="check-tile"><input type="checkbox" name="replaceDate" checked><span>Replace Date</span></label>
+            <label class="check-tile"><input type="checkbox" name="replaceTo" checked><span>Replace To</span></label>
             <label class="check-tile"><input type="checkbox" name="keepReceived" checked><span>Keep Received</span></label>
             <label class="check-tile"><input type="checkbox" name="keepReplyTo" checked><span>Keep Reply-To</span></label>
+            <label class="check-tile"><input type="checkbox" name="addCc"><span>Auto Add Cc</span></label>
             <label class="check-tile"><input type="checkbox" name="addSender"><span>Add Sender</span></label>
-          </div>
-          <div class="field" id="msgIdField" style="display:none; margin-top:10px;">
-            <label class="f-label">Message-ID Tag</label>
-            <input name="eid" class="f-input" value="[EID]" placeholder="[EID]">
-          </div>
-          <div class="field" id="fromFormatField" style="display:none; margin-top:10px;">
-            <label class="f-label">From Format</label>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-              <label class="check-tile"><input type="radio" name="fromFormat" value="static" checked><span>fromnamenews &lt;[smtp]&gt;</span></label>
-              <label class="check-tile"><input type="radio" name="fromFormat" value="custom"><span>[From] &lt;[smtp]&gt;</span></label>
-            </div>
+            <label class="check-tile"><input type="checkbox" name="addFromID"><span>From [ID]</span></label>
+            <label class="check-tile"><input type="checkbox" name="addSubjectID"><span>Subject [ID]</span></label>
           </div>
         </div>
       </div>
@@ -967,29 +956,26 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
           <span class="panel-title">Headers Parameters</span>
         </div>
         <div class="panel-body">
-          <div class="checks-grid">
-            <label class="check-tile"><input type="checkbox" name="addMessageId2" id="addMessageId2Chk"><span>Add Message-ID</span></label>
-            <label class="check-tile"><input type="checkbox" name="addFrom2" id="addFrom2Chk"><span>Add From</span></label>
-            <label class="check-tile"><input type="checkbox" name="keepReceived2"><span>Keep Received</span></label>
-            <label class="check-tile" style="height:42px;">
-              <input type="checkbox" name="addSender1" id="addSender1Chk">
-              <span>Add Sender</span>
-            </label>
+          <div class="field">
+            <label class="f-label">From</label>
+            <input name="FROM_VAL" class="f-input f-mono" value="[P_FRNAME]@[P_RPATH]" placeholder="[P_FRNAME]@[P_RPATH]">
           </div>
-          <div class="field" id="msgId2Field" style="display:none; margin-top:10px;">
-            <label class="f-label">Message-ID Tag</label>
-            <input name="EID_VAL" class="f-input f-mono" value="[EID]" placeholder="[EID]">
-          </div>
-          <div class="field" id="fromFormat2Field" style="display:none; margin-top:10px;">
-            <label class="f-label">From Format</label>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-              <label class="check-tile"><input type="radio" name="fromFormat2" value="static" checked><span>fromnamenews &lt;[smtp]&gt;</span></label>
-              <label class="check-tile"><input type="radio" name="fromFormat2" value="custom"><span>[From] &lt;[smtp]&gt;</span></label>
-            </div>
-          </div>
-          <div class="field" style="margin-top:10px;">
+          <div class="field">
             <label class="f-label">Content-Type</label>
             <input name="CONTENT_TYPE_VAL" class="f-input f-mono" value='multipart/related;boundary=&quot;[BND]&quot;;type=&quot;multipart/alternative&quot;' placeholder='multipart/related;boundary="[BND]";type="multipart/alternative"'>
+          </div>
+          <div class="headers-2col">
+            <div class="field">
+              <label class="f-label">Subject Value</label>
+              <input name="SUBJECT_VAL" class="f-input f-mono" value="[S]" placeholder="[S]">
+            </div>
+            <div class="field">
+              <label class="f-label" style="visibility:hidden;">Add Sender</label>
+              <label class="check-tile" style="height:42px;">
+                <input type="checkbox" name="addSender1" id="addSender1Chk">
+                <span>Add Sender</span>
+              </label>
+            </div>
           </div>
           <div class="field" id="senderFormatField" style="display:none;">
             <label class="f-label">Sender Format</label>
@@ -1102,7 +1088,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
       <div class="foot-logo">🚀</div>
       <div>
         <div class="foot-name">KRIMBOCH Extractor</div>
-        <span class="foot-copy">© <span id="yr"></span> <span id="footAuthor">Karim Rachmoun </span> <span id="termsLink" style="cursor:pointer;">-</span> All rights
+        <span class="foot-copy">© <span id="yr"></span> <span id="footAuthor">Karim Rachmoun & Halimoks </span> <span id="termsLink" style="cursor:pointer;">-</span> All rights
           <span class="foot-link-wrap" style="display:inline-block;">
             reserved
             <div class="mode3-pop" id="mode3Pop">
@@ -1170,6 +1156,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     }
     const footAuthor = document.getElementById('footAuthor');
     if (footAuthor) footAuthor.textContent = isPink ? 'Nour Aassifar & Karim' : 'Karim Rachmoun & halimoks';
+    if (footAuthor) footAuthor.textContent = isPink ? 'Nour Aassifar & Karim' : 'Karim Rachmoun & Halimoks';
   }
   function toggleTheme() {
     applyTheme(localStorage.getItem('KRIMBOCHtheme') === 'dark' ? 'light' : 'dark');
@@ -1214,18 +1201,6 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
   }
   addSender1Chk.addEventListener('change', syncSenderFormat);
   syncSenderFormat();
-
-  function wireToggle(checkboxId, fieldId) {
-    var chk = document.getElementById(checkboxId);
-    var field = document.getElementById(fieldId);
-    function sync() { field.style.display = chk.checked ? 'block' : 'none'; }
-    chk.addEventListener('change', sync);
-    sync();
-  }
-  wireToggle('addMessageIdChk', 'msgIdField');
-  wireToggle('addFromChk', 'fromFormatField');
-  wireToggle('addMessageId2Chk', 'msgId2Field');
-  wireToggle('addFrom2Chk', 'fromFormat2Field');
 
   // ── Edit Params ───────────────────────────────────────────────────────────
   var editParamCount = 0;
@@ -1360,20 +1335,10 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     const mode = document.querySelector("input[name='mode']:checked").value;
     lastFilename = fileNames[mode] || 'merged_emails.txt';
 
-    const checkedCategories = form.querySelectorAll("input[name='category']:checked");
-    if (checkedCategories.length === 0) {
-      alert('Pick at least one inbox category (Primary, Promotions, Social, Updates, or Forums).');
-      clearInterval(iv);
-      loadingBox.style.display = 'none';
-      extractBtn.disabled = false;
-      extractBtn.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Start Extraction';
-      return;
-    }
-
     if (mode === 'delete') {
       const startVal = parseInt(form.start.value) || 1;
       const limitVal = parseInt(form.limit.value) || 0;
-      const confirmed = confirm('This will PERMANENTLY delete the selected Start/Limit range (' + startVal + ' to ' + (startVal + limitVal - 1) + ') — including purging it from Trash. This cannot be undone. Continue?');
+      const confirmed = confirm('This will PERMANENTLY delete the selected Start/Limit range (' + startVal + ' to ' + (startVal + limitVal - 1) + ') from the mailbox. This cannot be undone. Continue?');
       if (!confirmed) {
         clearInterval(iv);
         loadingBox.style.display = 'none';
