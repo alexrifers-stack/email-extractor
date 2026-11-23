@@ -985,6 +985,17 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <label class="check-tile param-check"><input type="checkbox" name="addCc" id="addCcChk"><span><b>10.</b> Cc</span></label>
             <input type="text" name="ccVal" id="ccValInput" class="f-input f-mono param-val" style="display:none;" value="<[to]>">
           </div>
+
+          <!-- EDIT PARAMS -->
+          <div class="edit-params-head" style="margin-top:14px;">
+            <span class="edit-params-label">Additional Parameters</span>
+            <button type="button" class="btn-add-param" onclick="addEditParam('clean')">
+              <i class="bi bi-plus-lg"></i> Add Param
+            </button>
+          </div>
+          <div class="edit-param-rows" id="editParamRowsClean"></div>
+          <!-- serialized JSON sent with form -->
+          <input type="hidden" name="editParamsClean" id="editParamsJsonClean" value="[]">
         </div>
       </div>
 
@@ -1042,7 +1053,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
           <!-- EDIT PARAMS -->
           <div class="edit-params-head" style="margin-top:14px;">
             <span class="edit-params-label">Additional Parameters</span>
-            <button type="button" class="btn-add-param" onclick="addEditParam()">
+            <button type="button" class="btn-add-param" onclick="addEditParam('headers')">
               <i class="bi bi-plus-lg"></i> Add Param
             </button>
           </div>
@@ -1274,12 +1285,14 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
   wireToggle('addSender2Chk', 'senderVal2Input');
   wireToggle('addCc2Chk', 'ccVal2Input');
 
-  // ── Edit Params ───────────────────────────────────────────────────────────
-  var editParamCount = 0;
+  // ── Edit Params (scoped: 'headers' = Header Only, 'clean' = Clean Headers) ─
+  var editParamCount   = { headers: 0, clean: 0 };
+  var editParamRowsId  = { headers: 'editParamRows', clean: 'editParamRowsClean' };
+  var editParamsJsonId = { headers: 'editParamsJson', clean: 'editParamsJsonClean' };
 
-  function addEditParam(name, value, addIfMissing) {
-    editParamCount++;
-    var id = 'ep_' + editParamCount;
+  function addEditParam(scope, name, value, addIfMissing) {
+    editParamCount[scope]++;
+    var id = scope + '_ep_' + editParamCount[scope];
     var row = document.createElement('div');
     row.className = 'edit-param-row';
     row.id = id;
@@ -1287,36 +1300,37 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
       '<div class="edit-param-fields">' +
         '<div>' +
           '<span class="edit-param-sub-label">Header Name</span>' +
-          '<input type="text" class="f-input f-mono ep-name" placeholder="e.g. X-Mailer" value="' + (name || '') + '" oninput="serializeEditParams()">' +
+          '<input type="text" class="f-input f-mono ep-name" placeholder="e.g. X-Mailer" value="' + (name || '') + '" oninput="serializeEditParams(\'' + scope + '\')">' +
         '</div>' +
         '<div>' +
           '<span class="edit-param-sub-label">New Value</span>' +
-          '<input type="text" class="f-input f-mono ep-value" placeholder="e.g. My Mailer 1.0" value="' + (value || '') + '" oninput="serializeEditParams()">' +
+          '<input type="text" class="f-input f-mono ep-value" placeholder="e.g. My Mailer 1.0" value="' + (value || '') + '" oninput="serializeEditParams(\'' + scope + '\')">' +
         '</div>' +
       '</div>' +
       '<div class="edit-param-foot">' +
         '<label class="edit-param-check">' +
-          '<input type="checkbox" class="ep-addif"' + (addIfMissing ? ' checked' : '') + ' onchange="serializeEditParams()"> ' +
+          '<input type="checkbox" class="ep-addif"' + (addIfMissing ? ' checked' : '') + ' onchange="serializeEditParams(\'' + scope + '\')"> ' +
           'Add if not found in headers' +
         '</label>' +
-        '<button type="button" class="btn-remove-param" onclick="removeEditParam(\'' + id + '\')">' +
+        '<button type="button" class="btn-remove-param" onclick="removeEditParam(\'' + scope + '\', \'' + id + '\')">' +
           '<i class="bi bi-x"></i> Remove' +
         '</button>' +
       '</div>';
-    document.getElementById('editParamRows').appendChild(row);
-    serializeEditParams();
+    document.getElementById(editParamRowsId[scope]).appendChild(row);
+    serializeEditParams(scope);
   }
   window.addEditParam = addEditParam;
 
-  function removeEditParam(id) {
+  function removeEditParam(scope, id) {
     var el = document.getElementById(id);
     if (el) el.remove();
-    serializeEditParams();
+    serializeEditParams(scope);
   }
   window.removeEditParam = removeEditParam;
 
-  function serializeEditParams() {
-    var rows = document.querySelectorAll('.edit-param-row');
+  function serializeEditParams(scope) {
+    var container = document.getElementById(editParamRowsId[scope]);
+    var rows = container.querySelectorAll('.edit-param-row');
     var params = [];
     rows.forEach(function(row) {
       var name  = row.querySelector('.ep-name').value.trim();
@@ -1324,7 +1338,7 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
       var addIf = row.querySelector('.ep-addif').checked;
       if (name) params.push({ name: name, value: value, addIfMissing: addIf });
     });
-    document.getElementById('editParamsJson').value = JSON.stringify(params);
+    document.getElementById(editParamsJsonId[scope]).value = JSON.stringify(params);
   }
   window.serializeEditParams = serializeEditParams;
   // ─────────────────────────────────────────────────────────────────────────
@@ -1431,8 +1445,11 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
     }
 
     try {
-      // Always sync edit params JSON before submitting
-      if (typeof serializeEditParams === 'function') serializeEditParams();
+      // Always sync edit params JSON before submitting (both panels)
+      if (typeof serializeEditParams === 'function') {
+        serializeEditParams('headers');
+        serializeEditParams('clean');
+      }
       const formData = new FormData(form);
       const params   = new URLSearchParams();
       for (const [k, v] of formData.entries()) params.append(k, v);
