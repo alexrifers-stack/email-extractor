@@ -139,7 +139,18 @@ function unfoldHeaders(email) {
 
 // Shared default for the News-style Content-Type parameter — kept identical
 // across both Clean Headers and Header Only, per spec.
-const DEFAULT_CONTENT_TYPE = 'multipart/related;boundary="[BND]";type="multipart/alternative"'
+// Default News-style values for the 10 optional parameters. These are what
+// gets used whenever the corresponding checkbox is left unchecked.
+const NEWS_DEFAULTS = {
+    from:        "[From] <[smtp]>",
+    subject:     "[Subject]",
+    date:        "[Date]",
+    to:          "<[to]>",
+    contentType: "text/html; charset=UTF-8",
+    eid:         "[EID]",
+    sender:      "noreply@[RDNS]",
+    cc:          "<[to]>"
+}
 
 // Shared headers to strip from any News-style header rewrite.
 const REMOVE_HEADERS = [
@@ -159,16 +170,26 @@ function applyMessageIdTag(line, eidTag) {
     return "Message-ID: <" + match[1] + eidTag + "@" + match[2] + ">"
 }
 
-// Builds the From line in one of the two allowed formats:
-//   static -> From: fromnamenews <[smtp]>
-//   custom -> From: [From] <[smtp]>   (uses the user's custom From tag)
-function buildFromLine(fromFormat) {
-    return fromFormat === 'custom' ? "From: [From] <[smtp]>" : "From: fromnamenews <[smtp]>"
+// Resolves the 10 optional parameters down to the concrete header lines /
+// values that cleanHeaders/cleanHeadersOnly should use: the News default
+// unless the matching "custom" checkbox is on and a value was given.
+function buildHeaderSet(options) {
+    options = options || {}
+    return {
+        fromLine:        "From: "         + (options.custFrom        && options.fromVal        ? options.fromVal        : NEWS_DEFAULTS.from),
+        subjectLine:     "Subject: "      + (options.custSubject     && options.subjectVal     ? options.subjectVal     : NEWS_DEFAULTS.subject),
+        dateLine:        "Date: "         + (options.custDate        && options.dateVal        ? options.dateVal        : NEWS_DEFAULTS.date),
+        toLine:          "To: "           + (options.custTo          && options.toVal          ? options.toVal          : NEWS_DEFAULTS.to),
+        contentTypeLine: "Content-Type: " + (options.custContentType && options.contentTypeVal ? options.contentTypeVal : NEWS_DEFAULTS.contentType),
+        eidTag:    options.eidVal    || NEWS_DEFAULTS.eid,
+        senderVal: options.senderVal || NEWS_DEFAULTS.sender,
+        ccVal:     options.ccVal     || NEWS_DEFAULTS.cc
+    }
 }
 
 function cleanHeaders(email, options) {
     options = options || {}
-    const eid = options.eid || "[EID]"
+    const hs = buildHeaderSet(options)
     // Unfold continuation lines so every header is on one line
     email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
@@ -186,22 +207,34 @@ function cleanHeaders(email, options) {
         if (!inHeaders) { cleaned.push(line); continue }
         if (REMOVE_HEADERS.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
         if (skip) { if (/^\s/.test(line)) continue; skip = false }
-        if (/^Date:/i.test(line)) { cleaned.push("Date: [Date]"); continue }
+        // #3 Date — always the resolved default/custom format
+        if (/^Date:/i.test(line)) { cleaned.push(hs.dateLine); continue }
+        // #7 Received — NOT included unless explicitly enabled
         if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
+        // #8 Reply-To — NOT included unless explicitly enabled
         if (/^Reply-To:/i.test(line)) { if (options.keepReplyTo) cleaned.push(line); continue }
+        // #6 Message-ID — enabled by default; input value used when enabled, original kept if disabled
         if (/^Message-ID:/i.test(line)) {
-            cleaned.push(options.addMessageId ? applyMessageIdTag(line, eid) : line)
+            cleaned.push(options.addMessageId ? applyMessageIdTag(line, hs.eidTag) : line)
             continue
         }
+        // #1 From (+ #9 Sender, added right after, only if enabled)
         if (/^From:/i.test(line)) {
-            cleaned.push(options.addFrom ? buildFromLine(options.fromFormat) : line)
-            if (options.addSender) cleaned.push("Sender: noreply@[RDNS]")
+            cleaned.push(hs.fromLine)
+            if (options.addSender) cleaned.push("Sender: " + hs.senderVal)
             continue
         }
-        if (/^To:/i.test(line)) { cleaned.push("To: <[to]>"); continue }
-        if (/^Cc:/i.test(line)) { continue } // Cc is never added or kept
-        if (/^Subject:/i.test(line)) { cleaned.push("Subject: [Subject]"); continue }
-        if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + DEFAULT_CONTENT_TYPE); continue }
+        // #4 To (+ #10 Cc, added right after, only if enabled)
+        if (/^To:/i.test(line)) {
+            cleaned.push(hs.toLine)
+            if (options.addCc) cleaned.push("Cc: " + hs.ccVal)
+            continue
+        }
+        if (/^Cc:/i.test(line)) { continue } // never pass through the original Cc; added above if enabled
+        // #2 Subject — always the resolved default/custom format
+        if (/^Subject:/i.test(line)) { cleaned.push(hs.subjectLine); continue }
+        // #5 Content-Type — always the resolved default/custom format
+        if (/^Content-Type:/i.test(line)) { cleaned.push(hs.contentTypeLine); continue }
         cleaned.push(line)
     }
     return cleaned.join("\n")
@@ -209,9 +242,7 @@ function cleanHeaders(email, options) {
 
 function cleanHeadersOnly(email, options) {
     options = options || {}
-    const CONTENT_TYPE_VAL = options.CONTENT_TYPE_VAL || DEFAULT_CONTENT_TYPE
-    const SENDER_VAL       = options.SENDER_VAL       || "noreply@[RDNS]"
-    const eid              = options.eid              || "[EID]"
+    const hs = buildHeaderSet(options)
     // Unfold continuation lines so every header is on one line
     email = unfoldHeaders(email)
     const lines = email.split(/\r?\n/)
@@ -223,21 +254,26 @@ function cleanHeadersOnly(email, options) {
         if (inHeaders && line.trim() === "") { inHeaders = false; break }
         if (REMOVE_HEADERS.some(function(h) { return line.toLowerCase().startsWith(h.toLowerCase() + ":") })) { skip = true; continue }
         if (skip) { if (/^\s/.test(line)) continue; skip = false }
-        if (/^Date:/i.test(line)) { cleaned.push("Date: [Date]"); continue }
+        if (/^Date:/i.test(line)) { cleaned.push(hs.dateLine); continue }
         if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
+        if (/^Reply-To:/i.test(line)) { if (options.keepReplyTo) cleaned.push(line); continue }
         if (/^Message-ID:/i.test(line)) {
-            cleaned.push(options.addMessageId ? applyMessageIdTag(line, eid) : line)
+            cleaned.push(options.addMessageId ? applyMessageIdTag(line, hs.eidTag) : line)
             continue
         }
         if (/^From:/i.test(line)) {
-            cleaned.push(options.addFrom ? buildFromLine(options.fromFormat) : line)
-            if (options.addSender1) cleaned.push("Sender: " + SENDER_VAL)
+            cleaned.push(hs.fromLine)
+            if (options.addSender) cleaned.push("Sender: " + hs.senderVal)
             continue
         }
-        if (/^Subject:/i.test(line)) { cleaned.push("Subject: [Subject]"); continue }
-        if (/^To:/i.test(line)) { cleaned.push("To: <[to]>"); continue }
-        if (/^Cc:/i.test(line)) { continue } // Cc is never added or kept
-        if (/^Content-Type:/i.test(line)) { cleaned.push("Content-Type: " + CONTENT_TYPE_VAL); continue }
+        if (/^Subject:/i.test(line)) { cleaned.push(hs.subjectLine); continue }
+        if (/^To:/i.test(line)) {
+            cleaned.push(hs.toLine)
+            if (options.addCc) cleaned.push("Cc: " + hs.ccVal)
+            continue
+        }
+        if (/^Cc:/i.test(line)) { continue } // never pass through the original Cc; added above if enabled
+        if (/^Content-Type:/i.test(line)) { cleaned.push(hs.contentTypeLine); continue }
         cleaned.push(line)
     }
 
@@ -468,26 +504,31 @@ async function runExtraction(req, res) {
                 results.push(raw)
             } else if (mode === "clean") {
                 results.push(cleanHeaders(raw, {
-                    eid:          req.body.eid,
-                    addMessageId: req.body.addMessageId === 'on',
-                    addFrom:      req.body.addFrom      === 'on',
-                    fromFormat:   req.body.fromFormat,
-                    keepReceived: req.body.keepReceived === 'on',
-                    keepReplyTo:  req.body.keepReplyTo  === 'on',
-                    addSender:    req.body.addSender    === 'on'
+                    custFrom:        req.body.custFrom        === 'on', fromVal:        req.body.fromVal,
+                    custSubject:     req.body.custSubject     === 'on', subjectVal:     req.body.subjectVal,
+                    custDate:        req.body.custDate        === 'on', dateVal:        req.body.dateVal,
+                    custTo:          req.body.custTo          === 'on', toVal:          req.body.toVal,
+                    custContentType: req.body.custContentType === 'on', contentTypeVal: req.body.contentTypeVal,
+                    addMessageId:    req.body.addMessageId    === 'on', eidVal:         req.body.eidVal,
+                    keepReceived:    req.body.keepReceived    === 'on',
+                    keepReplyTo:     req.body.keepReplyTo     === 'on',
+                    addSender:       req.body.addSender       === 'on', senderVal: req.body.senderVal,
+                    addCc:           req.body.addCc           === 'on', ccVal:     req.body.ccVal
                 }))
             } else if (mode === "headersonly") {
                 var editParams = []
                 try { editParams = JSON.parse(req.body.editParams || '[]') } catch(e) { editParams = [] }
                 results.push(cleanHeadersOnly(raw, {
-                    CONTENT_TYPE_VAL: req.body.CONTENT_TYPE_VAL,
-                    SENDER_VAL:       req.body.SENDER_VAL,
-                    addSender1:       req.body.addSender1   === 'on',
-                    eid:              req.body.EID_VAL,
-                    addMessageId:     req.body.addMessageId2 === 'on',
-                    addFrom:          req.body.addFrom2      === 'on',
-                    fromFormat:       req.body.fromFormat2,
-                    keepReceived:     req.body.keepReceived2 === 'on',
+                    custFrom:        req.body.custFrom2        === 'on', fromVal:        req.body.fromVal2,
+                    custSubject:     req.body.custSubject2     === 'on', subjectVal:     req.body.subjectVal2,
+                    custDate:        req.body.custDate2        === 'on', dateVal:        req.body.dateVal2,
+                    custTo:          req.body.custTo2          === 'on', toVal:          req.body.toVal2,
+                    custContentType: req.body.custContentType2 === 'on', contentTypeVal: req.body.contentTypeVal2,
+                    addMessageId:    req.body.addMessageId2    === 'on', eidVal:         req.body.eidVal2,
+                    keepReceived:    req.body.keepReceived2    === 'on',
+                    keepReplyTo:     req.body.keepReplyTo2     === 'on',
+                    addSender:       req.body.addSender2       === 'on', senderVal: req.body.senderVal2,
+                    addCc:           req.body.addCc2           === 'on', ccVal:     req.body.ccVal2,
                     editParams: editParams
                 }))
             } else if (mode === "bodyonly") {
