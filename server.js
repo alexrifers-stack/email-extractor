@@ -196,11 +196,13 @@ function cleanHeaders(email, options) {
     var cleaned = []
     var skip = false
     var inHeaders = true
+    var headerEndIndex = -1 // index in `cleaned` where the blank line (end of headers) lands
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i]
         // Blank line = end of headers; pass everything after through unchanged
         if (inHeaders && line.trim() === "") {
             inHeaders = false
+            headerEndIndex = cleaned.length
             cleaned.push(line)
             continue
         }
@@ -213,9 +215,9 @@ function cleanHeaders(email, options) {
         if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
         // #8 Reply-To — NOT included unless explicitly enabled
         if (/^Reply-To:/i.test(line)) { if (options.keepReplyTo) cleaned.push(line); continue }
-        // #6 Message-ID — enabled by default; input value used when enabled, original kept if disabled
+        // #6 Message-ID — enabled by default; input value used when enabled, removed entirely if disabled
         if (/^Message-ID:/i.test(line)) {
-            cleaned.push(options.addMessageId ? applyMessageIdTag(line, hs.eidTag) : line)
+            if (options.addMessageId) cleaned.push(applyMessageIdTag(line, hs.eidTag))
             continue
         }
         // #1 From (+ #9 Sender, added right after, only if enabled)
@@ -237,6 +239,30 @@ function cleanHeaders(email, options) {
         if (/^Content-Type:/i.test(line)) { cleaned.push(hs.contentTypeLine); continue }
         cleaned.push(line)
     }
+    if (headerEndIndex === -1) headerEndIndex = cleaned.length // no blank line/body found
+
+    // ── Apply custom edit params — header section only, never the body ──────
+    var editParams = Array.isArray(options.editParams) ? options.editParams : []
+    editParams.forEach(function(param) {
+        if (!param.name || param.name.trim() === '') return
+        var headerName = param.name.trim()
+        var headerValue = (param.value || '').trim()
+        var pattern = new RegExp('^' + headerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':', 'i')
+        var found = false
+        for (var k = 0; k < headerEndIndex; k++) {
+            if (pattern.test(cleaned[k])) {
+                cleaned[k] = headerName + ': ' + headerValue
+                found = true
+                break
+            }
+        }
+        // If not found and addIfMissing is true, insert right before the blank line (still in the header section)
+        if (!found && param.addIfMissing) {
+            cleaned.splice(headerEndIndex, 0, headerName + ': ' + headerValue)
+            headerEndIndex++
+        }
+    })
+
     return cleaned.join("\n")
 }
 
@@ -258,7 +284,7 @@ function cleanHeadersOnly(email, options) {
         if (/^Received:/i.test(line)) { if (options.keepReceived) cleaned.push(line); continue }
         if (/^Reply-To:/i.test(line)) { if (options.keepReplyTo) cleaned.push(line); continue }
         if (/^Message-ID:/i.test(line)) {
-            cleaned.push(options.addMessageId ? applyMessageIdTag(line, hs.eidTag) : line)
+            if (options.addMessageId) cleaned.push(applyMessageIdTag(line, hs.eidTag))
             continue
         }
         if (/^From:/i.test(line)) {
@@ -503,6 +529,8 @@ async function runExtraction(req, res) {
             } else if (mode === "original") {
                 results.push(raw)
             } else if (mode === "clean") {
+                var editParamsClean = []
+                try { editParamsClean = JSON.parse(req.body.editParamsClean || '[]') } catch(e) { editParamsClean = [] }
                 results.push(cleanHeaders(raw, {
                     custFrom:        req.body.custFrom        === 'on', fromVal:        req.body.fromVal,
                     custSubject:     req.body.custSubject     === 'on', subjectVal:     req.body.subjectVal,
@@ -513,7 +541,8 @@ async function runExtraction(req, res) {
                     keepReceived:    req.body.keepReceived    === 'on',
                     keepReplyTo:     req.body.keepReplyTo     === 'on',
                     addSender:       req.body.addSender       === 'on', senderVal: req.body.senderVal,
-                    addCc:           req.body.addCc           === 'on', ccVal:     req.body.ccVal
+                    addCc:           req.body.addCc           === 'on', ccVal:     req.body.ccVal,
+                    editParams: editParamsClean
                 }))
             } else if (mode === "headersonly") {
                 var editParams = []
