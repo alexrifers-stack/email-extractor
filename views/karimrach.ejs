@@ -895,8 +895,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <select name="label" id="labelSelect" class="f-input">
               <% if (labels.length > 0) { %>
                 <% labels.forEach(function(label) { %>
-                  <option value="<%= label.name %>" data-count="<%= label.count %>">
-                    <%= label.name %> (<%= label.count %>)
+                  <option value="<%= label.name %>">
+                    <%= label.name %>
                   </option>
                 <% }) %>
               <% } else { %>
@@ -968,8 +968,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <input type="text" name="contentTypeVal" id="contentTypeValInput" class="f-input f-mono param-val" style="display:none;" value="text/html; charset=UTF-8">
           </div>
           <div class="param-row">
-            <label class="check-tile param-check"><input type="checkbox" name="addMessageId" id="addMessageIdChk" ><span><b>6.</b> Message-ID</span></label>
-            <input type="text" name="eidVal" id="eidValInput" class="f-input f-mono param-val" style="display:none;" value="[rnda_4]">
+            <label class="check-tile param-check"><input type="checkbox" name="addMessageId" id="addMessageIdChk" checked><span><b>6.</b> Message-ID</span></label>
+            <input type="text" name="eidVal" id="eidValInput" class="f-input f-mono param-val" value="[EID]">
           </div>
           <div class="param-row">
             <label class="check-tile param-check"><input type="checkbox" name="keepReceived" id="keepReceivedChk"><span><b>7.</b> Received <small style="font-weight:400;">(keep original)</small></span></label>
@@ -1032,8 +1032,8 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
             <input type="text" name="contentTypeVal2" id="contentTypeVal2Input" class="f-input f-mono param-val" style="display:none;" value="text/html; charset=UTF-8">
           </div>
           <div class="param-row">
-            <label class="check-tile param-check"><input type="checkbox" name="addMessageId2" id="addMessageId2Chk" ><span><b>6.</b> Message-ID</span></label>
-            <input type="text" name="eidVal2" id="eidVal2Input" class="f-input f-mono param-val" style="display:none;" value="[rnda_6]">
+            <label class="check-tile param-check"><input type="checkbox" name="addMessageId2" id="addMessageId2Chk" checked><span><b>6.</b> Message-ID</span></label>
+            <input type="text" name="eidVal2" id="eidVal2Input" class="f-input f-mono param-val" value="[EID]">
           </div>
           <div class="param-row">
             <label class="check-tile param-check"><input type="checkbox" name="keepReceived2" id="keepReceived2Chk"><span><b>7.</b> Received <small style="font-weight:400;">(keep original)</small></span></label>
@@ -1353,10 +1353,33 @@ body.pink-dark .foot-tg:hover { color: #0d0008; }
 
   const labelSel = document.getElementById('labelSelect');
   const labelCnt = document.getElementById('labelCount');
-  function updateCount() {
-    if (!labelSel) return;
-    const n = labelSel.options[labelSel.selectedIndex]?.getAttribute('data-count') || 0;
-    labelCnt.innerHTML = '<i class="bi bi-envelope-fill" style="font-size:10px;"></i> <span>' + n + ' emails in folder</span>';
+  let countFetchToken = 0; // guards against a slow earlier fetch overwriting a newer one
+  async function updateCount() {
+    if (!labelSel || !labelSel.value) return;
+    const myToken = ++countFetchToken;
+    labelCnt.innerHTML = '<i class="bi bi-envelope-fill" style="font-size:10px;"></i> <span>Loading count…</span>';
+    try {
+      const mainFormEl = document.getElementById('mainForm');
+      const params = new URLSearchParams();
+      params.append('email', mainFormEl.email.value || '');
+      params.append('password', mainFormEl.password.value || '');
+      params.append('label', labelSel.value);
+      const resp = await fetch('/label-count', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:    params.toString()
+      });
+      const data = await resp.json();
+      if (myToken !== countFetchToken) return; // a newer selection superseded this one
+      if (resp.ok && data.ok) {
+        labelCnt.innerHTML = '<i class="bi bi-envelope-fill" style="font-size:10px;"></i> <span>' + data.count + ' emails in folder</span>';
+      } else {
+        labelCnt.innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="font-size:10px;"></i> <span>Could not load count</span>';
+      }
+    } catch (err) {
+      if (myToken !== countFetchToken) return;
+      labelCnt.innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="font-size:10px;"></i> <span>Could not load count</span>';
+    }
   }
   labelSel.addEventListener('change', updateCount);
   updateCount();
