@@ -603,27 +603,39 @@ app.get("/", function(req, res) {
     res.render("karimrach", { labels: [], error: null, email: "", password: "", navItems: NAV_ITEMS, activeNav: "extract" })
 })
 
-// Connect to IMAP and list folders
+// Connect to IMAP and list folders.
+// NOTE: this intentionally does NOT open each mailbox to get a message count
+// (that used to mean one IMAP SELECT round-trip per folder, serially — on an
+// account with dozens of labels that alone could take many seconds before the
+// page even rendered). Counts are now fetched lazily, one label at a time, by
+// the /label-count route below whenever the person actually selects a label.
 app.post("/connect", async function(req, res) {
     const { email, password } = req.body
     try {
         const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: email, pass: password } })
         await client.connect()
         var boxes = await client.list()
-        var labels = []
-        for (var i = 0; i < boxes.length; i++) {
-            var box = boxes[i]
-            try {
-                var mailbox = await client.mailboxOpen(box.path)
-                labels.push({ name: box.path, count: mailbox.exists || 0 })
-            } catch (err) {
-                labels.push({ name: box.path, count: 0 })
-            }
-        }
         await client.logout()
+        var labels = boxes.map(function(box) { return { name: box.path, count: null } })
         res.render("karimrach", { labels, error: null, email, password, navItems: NAV_ITEMS, activeNav: "extract" })
     } catch (err) {
         res.render("karimrach", { labels: [], error: "Connection Failed", email, password, navItems: NAV_ITEMS, activeNav: "extract" })
+    }
+})
+
+// Lightweight on-demand count for a single label (one IMAP STATUS round-trip,
+// not a full SELECT) — called by the UI whenever the label dropdown changes.
+app.post("/label-count", async function(req, res) {
+    const { email, password, label } = req.body
+    const client = new ImapFlow({ host: "imap.gmail.com", port: 993, secure: true, auth: { user: email, pass: password } })
+    try {
+        await client.connect()
+        var status = await client.status(label, { messages: true })
+        await client.logout()
+        res.json({ ok: true, count: status.messages || 0 })
+    } catch (err) {
+        try { await client.logout() } catch (e) {}
+        res.status(500).json({ ok: false, error: "Could not fetch count" })
     }
 })
 
