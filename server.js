@@ -328,7 +328,7 @@ function cleanHeadersOnly(email, options) {
 }
 
 async function getRawBody(raw) {
-    const parsed = await simpleParser(raw)
+    const parsed = await simpleParser(raw, { skipHtmlToText: true })
     var bodyParts = []
     if (parsed.html) bodyParts.push(parsed.html)
     else if (parsed.text) bodyParts.push(parsed.text)
@@ -508,30 +508,42 @@ async function runExtraction(req, res) {
             return
         }
 
-        for (var i = 0; i < selected.length; i++) {
-            var uid = selected[i]
+        // Process all selected messages concurrently rather than one at a time.
+        // Previously this was a strictly sequential loop: fetch email 1's raw
+        // source over the network, THEN parse/convert it (CPU work), THEN only
+        // fetch email 2, etc. — the network wait for each fetch and the CPU
+        // work for parsing it never overlapped, so total time was the sum of
+        // every fetch PLUS every parse. Firing all the fetches off together
+        // (they queue on the same IMAP connection, but parsing for an already-
+        // downloaded message can now run while later fetches are still in
+        // flight) cuts wall-clock time substantially, which matters a lot on
+        // a serverless host with a hard request timeout. A fixed-size array
+        // keeps output in the original newest-to-oldest order regardless of
+        // which fetch happens to finish first.
+        var resultsSlots = new Array(selected.length).fill(null)
+        await Promise.all(selected.map(async function(uid, i) {
             var msg = await client.fetchOne(uid, { source: true }, { uid: useUid })
             var raw = msg.source.toString()
             if (mode === "plaintext") {
-                const parsed = await simpleParser(raw)
+                const parsed = await simpleParser(raw, { skipHtmlToText: true })
                 var text = ""
                 if (parsed.html) {
                     text = htmlToPlainText(parsed.html)
                 } else if (parsed.text) {
                     text = parsed.text.replace(/https?:\/\/[^\s]+/gi, "").replace(/\n{3,}/g, "\n\n").trim()
                 }
-                if (text && text.trim()) results.push(text.trim())
+                if (text && text.trim()) resultsSlots[i] = text.trim()
             } else if (mode === "justtext") {
-                const parsed = await simpleParser(raw)
+                const parsed = await simpleParser(raw, { skipHtmlToText: true })
                 var text2 = parsed.text || ""
                 if (!text2 && parsed.html) text2 = htmlToText(parsed.html)
-                if (text2 && text2.trim()) results.push(text2.trim())
+                if (text2 && text2.trim()) resultsSlots[i] = text2.trim()
             } else if (mode === "original") {
-                results.push(raw)
+                resultsSlots[i] = raw
             } else if (mode === "clean") {
                 var editParamsClean = []
                 try { editParamsClean = JSON.parse(req.body.editParamsClean || '[]') } catch(e) { editParamsClean = [] }
-                results.push(cleanHeaders(raw, {
+                resultsSlots[i] = cleanHeaders(raw, {
                     custFrom:        req.body.custFrom        === 'on', fromVal:        req.body.fromVal,
                     custSubject:     req.body.custSubject     === 'on', subjectVal:     req.body.subjectVal,
                     custDate:        req.body.custDate        === 'on', dateVal:        req.body.dateVal,
@@ -543,11 +555,11 @@ async function runExtraction(req, res) {
                     addSender:       req.body.addSender       === 'on', senderVal: req.body.senderVal,
                     addCc:           req.body.addCc           === 'on', ccVal:     req.body.ccVal,
                     editParams: editParamsClean
-                }))
+                })
             } else if (mode === "headersonly") {
                 var editParams = []
                 try { editParams = JSON.parse(req.body.editParams || '[]') } catch(e) { editParams = [] }
-                results.push(cleanHeadersOnly(raw, {
+                resultsSlots[i] = cleanHeadersOnly(raw, {
                     custFrom:        req.body.custFrom2        === 'on', fromVal:        req.body.fromVal2,
                     custSubject:     req.body.custSubject2     === 'on', subjectVal:     req.body.subjectVal2,
                     custDate:        req.body.custDate2        === 'on', dateVal:        req.body.dateVal2,
@@ -559,19 +571,19 @@ async function runExtraction(req, res) {
                     addSender:       req.body.addSender2       === 'on', senderVal: req.body.senderVal2,
                     addCc:           req.body.addCc2           === 'on', ccVal:     req.body.ccVal2,
                     editParams: editParams
-                }))
+                })
             } else if (mode === "bodyonly") {
                 var body = await getRawBody(raw)
-                if (body && body.trim()) results.push(body.trim())
+                if (body && body.trim()) resultsSlots[i] = body.trim()
             } else if (mode === "cssonly") {
                 var htmlBody = await getRawBody(raw)
                 var includeDoctype = req.body.includeDoctype === 'on'
                 var css = extractCssOnly(htmlBody, includeDoctype)
-                if (css && css.trim()) results.push(css.trim())
+                if (css && css.trim()) resultsSlots[i] = css.trim()
             } else if (mode === "cssclean") {
                 var htmlBody2 = await getRawBody(raw)
                 var cleanCss = extractCleanCss(htmlBody2)
-                if (cleanCss && cleanCss.trim()) results.push(cleanCss.trim())
+                if (cleanCss && cleanCss.trim()) resultsSlots[i] = cleanCss.trim()
             } else if (mode === "receivedonly") {
                 var receivedLines = []
                 var rawLines = raw.split(/\r?\n/)
@@ -582,9 +594,10 @@ async function runExtraction(req, res) {
                     else if (inReceived && /^\s/.test(rline)) { receivedLines[receivedLines.length - 1] += "\n" + rline }
                     else { inReceived = false; if (rline.trim() === "") break }
                 }
-                if (receivedLines.length) results.push(receivedLines.join("\n"))
+                if (receivedLines.length) resultsSlots[i] = receivedLines.join("\n")
             }
-        }
+        }))
+        results = resultsSlots.filter(function(r) { return r !== null && r !== undefined })
         lock.release()
         await client.logout()
         if (!results.length) throw new Error("No emails found")
